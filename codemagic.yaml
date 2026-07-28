@@ -1,0 +1,155 @@
+workflows:
+  ios-testflight:
+    name: Cliff Crash Crew — iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: corgi_hop_apple
+
+    environment:
+      xcode: 26.6
+      node: 22
+      cocoapods: default
+
+      vars:
+        BUNDLE_ID: com.wiz37.cliffcrashcrew
+        XCODE_WORKSPACE: ios/App/App.xcworkspace
+        XCODE_SCHEME: App
+        XCODE_CONFIG: Release
+        MARKETING_VERSION: 1.0.0
+
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.wiz37.cliffcrashcrew
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Verify build environment
+        script: |
+          set -euo pipefail
+          echo "Repository root: $CM_BUILD_DIR"
+          node --version
+          npm --version
+          xcodebuild -version
+          sw_vers
+
+      - name: Install JavaScript dependencies
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          npm install
+
+      - name: Type-check and build web game
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          npm run build
+          test -s dist/index.html
+          ls -lh dist/index.html
+
+      - name: Generate and sync Capacitor iOS project
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          rm -rf ios
+          npx cap add ios
+          npx cap sync ios
+          test -f ios/App/App.xcodeproj/project.pbxproj
+
+      - name: Configure native iOS application
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          bash scripts/configure-ios.sh
+
+      - name: Install CocoaPods
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR/ios/App"
+          pod install
+
+      - name: Set version and build number
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+
+          IOS_BUILD_NUMBER="${BUILD_NUMBER:-${CM_BUILD_NUMBER:-1}}"
+          export IOS_BUILD_NUMBER
+
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          project = Path('ios/App/App.xcodeproj/project.pbxproj')
+          text = project.read_text()
+          version = os.environ.get('MARKETING_VERSION', '1.0.0')
+          build = os.environ.get('IOS_BUILD_NUMBER', '1')
+          bundle = os.environ.get('BUNDLE_ID', 'com.wiz37.cliffcrashcrew')
+
+          text = re.sub(r'MARKETING_VERSION = [^;]+;', f'MARKETING_VERSION = {version};', text)
+          text = re.sub(r'CURRENT_PROJECT_VERSION = [^;]+;', f'CURRENT_PROJECT_VERSION = {build};', text)
+          text = re.sub(r'PRODUCT_BUNDLE_IDENTIFIER = [^;]+;', f'PRODUCT_BUNDLE_IDENTIFIER = {bundle};', text)
+          project.write_text(text)
+
+          print(f'Marketing version: {version}')
+          print(f'Build number: {build}')
+          print(f'Bundle identifier: {bundle}')
+          PY
+
+      - name: Apply App Store signing profile
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          xcode-project use-profiles
+
+      - name: Archive and export signed IPA
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --config "$XCODE_CONFIG" \
+            --archive-flags "-destination 'generic/platform=iOS'"
+
+      - name: Stage IPA for Codemagic publishing
+        script: |
+          set -euo pipefail
+
+          SOURCE_DIR="$CM_BUILD_DIR/build/ios/ipa"
+          FALLBACK_DIR="$CM_BUILD_DIR/ios/App/build/ios/ipa"
+          DEST_DIR="$CM_BUILD_DIR/testflight"
+
+          mkdir -p "$DEST_DIR"
+
+          SOURCE_IPA="$(find "$SOURCE_DIR" "$FALLBACK_DIR" -type f -name '*.ipa' 2>/dev/null | head -n 1 || true)"
+          if [ -z "$SOURCE_IPA" ]; then
+            echo "ERROR: No IPA was generated."
+            find "$CM_BUILD_DIR" -type f -name '*.ipa' -print || true
+            exit 1
+          fi
+
+          cp -f "$SOURCE_IPA" "$DEST_DIR/CliffCrashCrew.ipa"
+          test -s "$DEST_DIR/CliffCrashCrew.ipa"
+          ls -lh "$DEST_DIR/CliffCrashCrew.ipa"
+
+    artifacts:
+      - testflight/*.ipa
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

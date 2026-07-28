@@ -3,7 +3,11 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import './styles.css';
 import { gameConfig } from './game/config';
+import { GameScene } from './game/scenes/GameScene';
 import { SaveService } from './game/services/SaveService';
+import { installNaturalRampTuning } from './game/systems/NaturalRampTuning';
+
+installNaturalRampTuning(GameScene);
 
 const game = new Phaser.Game(gameConfig);
 

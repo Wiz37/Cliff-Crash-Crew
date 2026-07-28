@@ -1,3 +1,3 @@
 # Asset Notes
 
-The icon, splash screen, procedural game graphics, music, and sound effects in this project were created specifically for Cliff Crash Crew for this deliverable. No third-party art packs, music tracks, sound libraries, fonts, brands, vehicle trademarks, or copyrighted characters are included.
+The app icon, splash artwork, procedural vehicle graphics, interface graphics, music, and sound effects included with Cliff Crash Crew were created for this project. The game does not use real vehicle brand names, trademarks, copyrighted characters, third-party art packs, or licensed music.

@@ -1,31 +1,30 @@
 # App Store Production Checklist
 
-## Project setup
+## Build and signing
 
-- Replace the placeholder company/bundle information in the iOS export preset.
-- Use a unique bundle ID, such as `com.company.cliffcrashcrew`.
-- Select the correct Apple development team and provisioning profile.
-- Confirm portrait-only orientation.
-- Test safe areas on notched iPhones and iPads.
-- Verify audio behavior when the app is backgrounded or interrupted by a call.
+- Use a Mac with a current Xcode installation.
+- Install Node.js 22.12 or newer.
+- Run `npm install`, `npm run build`, `npx cap add ios`, and `npx cap sync ios`.
+- Open the generated iOS project in Xcode.
+- Set the final bundle identifier and Apple Developer team.
+- Set version and build numbers.
+- Confirm portrait orientation and safe-area behavior.
+- Archive and validate the release build.
 
-## Quality work before submission
+## Game QA
 
-- Test every vehicle on at least three physical iPhone sizes.
-- Tune launch power, obstacle placement, unlock prices, and round length from child playtests.
-- Add several more courses so the final product is not dependent on one ramp.
-- Add a pause button, restore-session behavior, accessibility options, and parental controls where required.
-- Replace or expand procedural vehicle art with a final production art pass if a richer 2D/3D look is desired.
-- Add App Store screenshots, preview video, description, keywords, support URL, and privacy-policy URL.
+- Test every vehicle on multiple physical iPhones and at least one iPad.
+- Test with silent mode, headphones, phone calls, app backgrounding, low battery, and no network.
+- Tune difficulty, star rewards, vehicle prices, and collision thresholds from child playtests.
+- Add more courses and randomized targets before commercial release.
+- Verify no text or controls are hidden by notches or the home indicator.
+- Verify save migration between updates.
 
-## Monetization
+## Store requirements
 
-This build contains no ads or purchases. Do not add child-directed advertising or analytics without first completing the required privacy, age-rating, consent, SDK, and store-policy review.
-
-## Submission
-
-- Increment version/build numbers.
-- Export the iOS Xcode project from Godot on macOS.
-- Build and archive using Xcode.
-- Upload through Xcode Organizer or Transporter.
-- Complete App Privacy, age rating, content rights, export compliance, and review notes in App Store Connect.
+- App icon and launch assets must be generated into the native iOS project.
+- Prepare App Store screenshots and an optional preview video.
+- Publish a support URL and privacy-policy URL.
+- Complete age rating, App Privacy, content rights, and export compliance.
+- Review Kids Category rules before selecting a child age band.
+- Do not add child-directed advertising, analytics, or purchases without a full policy and privacy review.

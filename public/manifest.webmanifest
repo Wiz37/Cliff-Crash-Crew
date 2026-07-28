@@ -1,0 +1,18 @@
+{
+  "name": "Cliff Crash Crew",
+  "short_name": "Crash Crew",
+  "description": "Launch, flip, and smash ridiculous vehicles.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#151629",
+  "theme_color": "#151629",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

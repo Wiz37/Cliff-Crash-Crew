@@ -1,47 +1,85 @@
-# Cliff Crash Crew — Godot Mobile Vertical Slice
+# Cliff Crash Crew — Web + App Store Game
 
-This is a Godot 4 mobile game project, not an HTML/index-file game. It is designed around a 1080 × 1920 portrait viewport and can be exported as an iOS or Android app from Godot.
+A polished, web-first mobile physics game built with **Phaser 3**, **TypeScript**, **Matter Physics**, **Vite**, and **Capacitor**.
 
-## Included now
+The same game code runs in a browser, installs as a PWA, and can be packaged as a native iOS or Android app. The project is no longer a single-file HTML prototype and no longer uses Godot.
 
-- One-touch charge-and-launch gameplay
-- Air rotation controls for flips
-- Destructible block tower
-- Wheel break-off, impact flash, particles, camera shake, slow motion, and haptic calls
-- Original menu music, engine loop, launch sound, three impact sounds, destruction sound, star sound, and UI sound
-- App icon and portrait splash screen
-- Garage with 11 vehicles
-  - Classics: Bounce Buggy, Chonky Bus, Rocket Van, Banana Blaster
-  - Construction: Dozer Dasher, Mega Digger, Dump Crusher
-  - Supercars: Turbo Tiger, Neon Hyper GT
-  - Semis: Big Rig Blast, Mega Hauler
-- Different power, spin, mass, length, and height characteristics
-- Unlockable vehicle progression using stars
-- Best score and progress saving
-- Touch, mouse, and keyboard controls
-- No ads, analytics, accounts, tracking, chat, or third-party runtime assets
+## Included
 
-## Open and run
+- Animated menu and garage
+- Eleven vehicles across classics, construction equipment, supercars, and semis
+- Matter.js vehicle physics with suspended wheels
+- Charge-and-launch gameplay
+- Midair rotation and flip scoring
+- Two destructible block towers
+- Breakaway wheels, particles, camera shake, slow motion, and haptics
+- Original music, engine loop, launch, crash, destruction, reward, and UI sounds
+- Stars, unlocks, selected vehicle, settings, and best-score saving
+- Responsive portrait layout
+- PWA manifest and offline service worker
+- Capacitor configuration for iOS and Android
+- GitHub Actions build validation
 
-1. Install a current Godot 4 Standard build and its export templates.
-2. Open `project.godot` from this folder.
-3. Press the Play Project button.
+## Run locally
 
-Desktop testing controls:
+Install Node.js 22.12 or newer, then:
 
-- Hold and release the mouse or Space bar to charge and launch.
-- Use the left/right arrow keys or the onscreen rotation buttons while airborne.
+```bash
+npm install
+npm run dev
+```
 
-## Mobile export
+Open the local address shown by Vite.
 
-The project is already set to portrait orientation and uses the GL Compatibility renderer for broad mobile-device support.
+## Production web build
 
-For iOS, open the project on macOS, install the Godot export templates, add an iOS export preset, set your bundle identifier and Apple signing information, export the Xcode project, and archive it in Xcode.
+```bash
+npm run build
+npm run preview
+```
 
-For Android, install the Android SDK/OpenJDK requirements, add an Android export preset, set the package name and signing key, then export an AAB for Google Play.
+The production files are generated in `dist/`.
 
-## Validation completed here
+## iPhone / App Store workflow
 
-`smoke_test.py` verifies required files, resource references, image sizes, WAV headers, bracket balance, and indentation. It passes in this package.
+On a Mac with Xcode:
 
-The project could not be compiled into an iOS build in this Linux environment. It still requires a hands-on Godot editor run, device testing, Apple signing, store metadata, and final QA before submission.
+```bash
+npm install
+npx cap add ios
+npm run cap:ios
+```
+
+In Xcode:
+
+1. Select your Apple Developer team.
+2. Confirm the bundle identifier `com.wiz37.cliffcrashcrew` or replace it with your final identifier.
+3. Test on physical iPhones.
+4. Archive the app.
+5. Upload it through Xcode Organizer to App Store Connect.
+
+After each web-code update, run:
+
+```bash
+npm run cap:sync
+```
+
+## Android workflow
+
+```bash
+npm install
+npx cap add android
+npm run cap:android
+```
+
+Create a signed Android App Bundle in Android Studio for Google Play.
+
+## Controls
+
+- Hold the screen or Space to charge.
+- Release to launch.
+- Hold the left/right onscreen buttons or arrow keys to rotate in the air.
+
+## Important production work still required
+
+This repository is a high-quality vertical slice and technical foundation. Before App Store submission, complete physical-device QA, add more courses, conduct child playtesting, finalize store screenshots and metadata, add a privacy/support website, and review Apple Kids Category requirements if listing it specifically for children.

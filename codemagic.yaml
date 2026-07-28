@@ -20,8 +20,10 @@ workflows:
         MARKETING_VERSION: 1.0.0
 
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.wiz37.cliffcrashcrew
+        certificates:
+          - corgi_hop_distribution
+        provisioning_profiles:
+          - cliff_crash_crew_app_store
 
     triggering:
       events:

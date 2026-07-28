@@ -22,8 +22,6 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     terrain.fillStyle(COLORS.grass, 1);
     terrain.fillRect(-200, 1480, 980, 34);
 
-    // Long 14-degree approach with a short, level run-off lip. The artwork and
-    // Matter bodies use matching coordinates so there is no invisible kick.
     terrain.fillStyle(COLORS.grassDark, 1);
     terrain.beginPath();
     terrain.moveTo(500, 1490);
@@ -93,8 +91,6 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
       body.restitution = 0.14;
     });
 
-    // Extra grip and almost no bounce prevent the ramp seam from catapulting
-    // lightweight vehicles as their front wheels transition onto the incline.
     ramp.friction = 1;
     ramp.restitution = 0.025;
     lip.friction = 1;
@@ -121,9 +117,6 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     this.launched = true;
     this.charging = false;
 
-    // Charge determines the target road speed. beginDrive releases the static
-    // bodies at rest; acceleration then comes from the spinning wheels and a
-    // small forward drivetrain force rather than an instant velocity change.
     const targetSpeed = (13.5 + this.charge * 12.5) * this.rig.spec.power;
     this.rig.beginDrive(targetSpeed);
 
@@ -132,6 +125,33 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     playSfx(this, 'launch', { volume: 0.38, rate: 0.76 + this.charge * 0.16 });
     HapticsService.selection();
     this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 12, 0xfff6d5, 1.1);
+  };
+
+  const originalBindCollisions = proto.bindCollisions;
+  proto.bindCollisions = function (...args: unknown[]): void {
+    originalBindCollisions.apply(this, args);
+
+    const updateGroundContacts = (event: any, active: boolean): void => {
+      event.pairs.forEach((pair: any) => {
+        const bodyA = pair.bodyA;
+        const bodyB = pair.bodyB;
+        const objectA = bodyA.gameObject as any;
+        const objectB = bodyB.gameObject as any;
+        const rigA = objectA?.getData?.('rig');
+        const rigB = objectB?.getData?.('rig');
+        const rig = rigA ?? rigB;
+        if (!rig) return;
+
+        const otherBody = rigA ? bodyB : bodyA;
+        if (otherBody.label !== 'ground' && otherBody.label !== 'breakable-block') return;
+
+        const contactId = `${Math.min(bodyA.id, bodyB.id)}:${Math.max(bodyA.id, bodyB.id)}`;
+        rig.setGroundContact(contactId, active);
+      });
+    };
+
+    this.matter.world.on('collisionstart', (event: any) => updateGroundContacts(event, true));
+    this.matter.world.on('collisionend', (event: any) => updateGroundContacts(event, false));
   };
 
   const originalUpdate = proto.update;

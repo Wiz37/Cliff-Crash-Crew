@@ -13,6 +13,7 @@ export class VehicleRig {
   private readonly leftConstraint: MatterJS.ConstraintType;
   private readonly rightConstraint: MatterJS.ConstraintType;
   private readonly wheelRadius: number;
+  private readonly groundContacts = new Set<string>();
   private leftAttached = true;
   private rightAttached = true;
   private launched = false;
@@ -118,10 +119,6 @@ export class VehicleRig {
     });
   }
 
-  /**
-   * Backwards-compatible alias for older callers. It now starts the drivetrain
-   * instead of assigning an instant launch velocity.
-   */
   launch(velocityX: number, _velocityY = 0): void {
     this.beginDrive(velocityX);
   }
@@ -155,8 +152,6 @@ export class VehicleRig {
       1,
     );
 
-    // A small drivetrain force helps heavy vehicles begin rolling without an
-    // impulse. It is applied only before the ramp edge and never adds lift.
     if (this.chassis.x < 1435 && speedDeficit > 0) {
       const driveForce = 0.00048
         * this.spec.mass
@@ -164,12 +159,29 @@ export class VehicleRig {
         * speedDeficit;
       this.chassis.applyForce(new Phaser.Math.Vector2(driveForce, 0));
     }
+
+    if (this.isGrounded) {
+      const damping = Math.pow(0.18, dt);
+      this.chassis.setAngularVelocity(chassisBody.angularVelocity * damping);
+    }
+  }
+
+  setGroundContact(contactId: string, active: boolean): void {
+    if (active) this.groundContacts.add(contactId);
+    else this.groundContacts.delete(contactId);
   }
 
   applyAirControl(direction: number, deltaSeconds: number): void {
     if (!this.launched || direction === 0) return;
+
     const body = this.chassis.body as MatterJS.BodyType;
-    const next = Phaser.Math.Clamp(body.angularVelocity + direction * this.spec.spin * deltaSeconds * 0.17, -0.24, 0.24);
+    const controlStrength = this.isGrounded ? 0.012 : 0.17;
+    const maximumRotationSpeed = this.isGrounded ? 0.05 : 0.24;
+    const next = Phaser.Math.Clamp(
+      body.angularVelocity + direction * this.spec.spin * deltaSeconds * controlStrength,
+      -maximumRotationSpeed,
+      maximumRotationSpeed,
+    );
     this.chassis.setAngularVelocity(next);
   }
 
@@ -193,6 +205,10 @@ export class VehicleRig {
       return true;
     }
     return false;
+  }
+
+  get isGrounded(): boolean {
+    return this.groundContacts.size > 0;
   }
 
   get speed(): number {

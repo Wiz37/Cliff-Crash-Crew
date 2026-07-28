@@ -6,8 +6,10 @@ import { gameConfig } from './game/config';
 import { GameScene } from './game/scenes/GameScene';
 import { SaveService } from './game/services/SaveService';
 import { installNaturalRampTuning } from './game/systems/NaturalRampTuning';
+import { installLevelProgression } from './game/systems/LevelProgression';
 
 installNaturalRampTuning(GameScene);
+installLevelProgression(GameScene);
 
 const game = new Phaser.Game(gameConfig);
 

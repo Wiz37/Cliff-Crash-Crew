@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { MenuScene } from './scenes/MenuScene';
+import { LevelSelectScene } from './scenes/LevelSelectScene';
 import { GarageScene } from './scenes/GarageScene';
 import { GameScene } from './scenes/GameScene';
 import { ResultsScene } from './scenes/ResultsScene';
@@ -43,5 +44,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     antialiasGL: true,
     batchSize: 4096,
   },
-  scene: [BootScene, PreloadScene, MenuScene, GarageScene, GameScene, ResultsScene],
+  scene: [BootScene, PreloadScene, MenuScene, LevelSelectScene, GarageScene, GameScene, ResultsScene],
 };

@@ -42,30 +42,34 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(540, 278, 'CLIFF', titleStyle(112)).setOrigin(0.5);
     this.add.text(540, 402, 'CRASH', titleStyle(142)).setOrigin(0.5).setColor('#ff4d86');
     this.add.text(540, 522, 'CREW', titleStyle(104)).setOrigin(0.5);
-    this.add.text(540, 178, 'LAUNCH • FLIP • SMASH', labelStyle(32, '#151629')).setOrigin(0.5).setStroke('#fff6d5', 0);
+    this.add.text(540, 178, 'DRIVE • JUMP • SMASH', labelStyle(32, '#151629')).setOrigin(0.5).setStroke('#fff6d5', 0);
 
     const save = SaveService.get();
     const spec = getVehicle(save.selectedVehicle);
-    const spotlight = this.add.ellipse(540, 980, 720, 260, COLORS.cream, 0.35);
+    const spotlight = this.add.ellipse(540, 940, 720, 260, COLORS.cream, 0.35);
     spotlight.setBlendMode(Phaser.BlendModes.ADD);
-    const preview = createVehicleDisplay(this, spec, 540, 900, 1.45);
-    this.tweens.add({ targets: preview, y: 875, angle: -2.5, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const preview = createVehicleDisplay(this, spec, 540, 860, 1.45);
+    this.tweens.add({ targets: preview, y: 835, angle: -2.5, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: spotlight, scaleX: 1.07, alpha: 0.24, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
     const namePlate = this.add.graphics();
     namePlate.fillStyle(COLORS.ink, 0.88);
-    namePlate.fillRoundedRect(188, 1110, 704, 102, 34);
+    namePlate.fillRoundedRect(188, 1070, 704, 102, 34);
     namePlate.lineStyle(5, spec.accentColor, 1);
-    namePlate.strokeRoundedRect(188, 1110, 704, 102, 34);
-    this.add.text(540, 1161, spec.name, labelStyle(42)).setOrigin(0.5);
+    namePlate.strokeRoundedRect(188, 1070, 704, 102, 34);
+    this.add.text(540, 1121, spec.name, labelStyle(42)).setOrigin(0.5);
 
-    createButton(this, 540, 1368, 'PLAY', () => {
+    this.add
+      .text(540, 1220, `MAPS UNLOCKED  ${save.highestUnlockedLevel} / 6`, labelStyle(30, '#ffd43b'))
+      .setOrigin(0.5);
+
+    createButton(this, 540, 1365, 'CHOOSE MAP', () => {
       playSfx(this, 'click', { volume: 0.7 });
       HapticsService.selection();
-      this.scene.start('Game');
-    }, { width: 690, height: 138, color: COLORS.pink, fontSize: 62 });
+      this.scene.start('LevelSelect');
+    }, { width: 690, height: 138, color: COLORS.pink, fontSize: 56 });
 
-    createButton(this, 540, 1545, 'GARAGE', () => {
+    createButton(this, 540, 1542, 'GARAGE', () => {
       playSfx(this, 'click', { volume: 0.7 });
       HapticsService.selection();
       this.scene.start('Garage');

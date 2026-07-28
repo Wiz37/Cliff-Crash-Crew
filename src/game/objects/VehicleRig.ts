@@ -12,9 +12,11 @@ export class VehicleRig {
   private readonly scene: Phaser.Scene;
   private readonly leftConstraint: MatterJS.ConstraintType;
   private readonly rightConstraint: MatterJS.ConstraintType;
+  private readonly wheelRadius: number;
   private leftAttached = true;
   private rightAttached = true;
   private launched = false;
+  private driveTargetSpeed = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, spec: VehicleSpec) {
     this.scene = scene;
@@ -23,6 +25,7 @@ export class VehicleRig {
     const bodyWidth = Math.min(390, 270 * spec.length);
     const bodyHeight = 74 * spec.height;
     const wheelRadius = 29 * spec.wheelScale;
+    this.wheelRadius = wheelRadius;
     const wheelOffsetX = bodyWidth * 0.32;
     const wheelOffsetY = bodyHeight * 0.58;
     const noSelfCollision = scene.matter.world.nextGroup(true);
@@ -102,15 +105,65 @@ export class VehicleRig {
     this.rightWheel.setStatic(value);
   }
 
-  launch(velocityX: number, velocityY: number): void {
+  beginDrive(targetSpeed: number): void {
     if (this.launched) return;
     this.launched = true;
+    this.driveTargetSpeed = Phaser.Math.Clamp(targetSpeed, 12, 34);
     this.setStatic(false);
+
     [this.chassis, this.leftWheel, this.rightWheel].forEach((part) => {
-      part.setVelocity(velocityX, velocityY);
+      part.setVelocity(0, 0);
+      part.setAngularVelocity(0);
       part.setAwake();
     });
-    this.chassis.setAngularVelocity(-0.035);
+  }
+
+  /**
+   * Backwards-compatible alias for older callers. It now starts the drivetrain
+   * instead of assigning an instant launch velocity.
+   */
+  launch(velocityX: number, _velocityY = 0): void {
+    this.beginDrive(velocityX);
+  }
+
+  applyDrive(deltaSeconds: number): void {
+    if (!this.launched) return;
+
+    const dt = Phaser.Math.Clamp(deltaSeconds, 0, 0.034);
+    const targetAngularVelocity = Phaser.Math.Clamp(
+      this.driveTargetSpeed / Math.max(26, this.wheelRadius * 1.15),
+      0.2,
+      0.72,
+    );
+    const response = 1 - Math.exp(-dt * (4.2 + this.spec.power));
+
+    const spinWheel = (wheel: Phaser.Physics.Matter.Image): void => {
+      const body = wheel.body as MatterJS.BodyType;
+      const nextAngularVelocity = body.angularVelocity
+        + (targetAngularVelocity - body.angularVelocity) * response;
+      wheel.setAngularVelocity(nextAngularVelocity);
+      wheel.setAwake();
+    };
+
+    if (this.leftAttached) spinWheel(this.leftWheel);
+    if (this.rightAttached) spinWheel(this.rightWheel);
+
+    const chassisBody = this.chassis.body as MatterJS.BodyType;
+    const speedDeficit = Phaser.Math.Clamp(
+      (this.driveTargetSpeed - chassisBody.velocity.x) / this.driveTargetSpeed,
+      0,
+      1,
+    );
+
+    // A small drivetrain force helps heavy vehicles begin rolling without an
+    // impulse. It is applied only before the ramp edge and never adds lift.
+    if (this.chassis.x < 1435 && speedDeficit > 0) {
+      const driveForce = 0.00048
+        * this.spec.mass
+        * (0.75 + this.spec.power * 0.25)
+        * speedDeficit;
+      this.chassis.applyForce(new Phaser.Math.Vector2(driveForce, 0));
+    }
   }
 
   applyAirControl(direction: number, deltaSeconds: number): void {

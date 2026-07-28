@@ -6,8 +6,8 @@ let installed = false;
 
 /**
  * Replaces the original steep launch ramp with a long, shallow run-off ramp.
- * It also removes the artificial upward catapult velocity so the vehicle's
- * wheels follow the ground and the ramp determines the natural takeoff angle.
+ * Vehicles accelerate with their wheels, climb under momentum, and leave the
+ * edge naturally without an artificial horizontal or vertical launch impulse.
  */
 export function installNaturalRampTuning(GameSceneClass: { prototype: object }): void {
   if (installed) return;
@@ -107,23 +107,38 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     warning.setStroke('#151629', 8);
   };
 
+  const originalBuildHud = proto.buildHud;
+  proto.buildHud = function (...args: unknown[]): void {
+    originalBuildHud.apply(this, args);
+    const prompt = this.children.list.find(
+      (child: any) => typeof child?.text === 'string' && child.text.includes('HOLD TO CHARGE'),
+    ) as any;
+    prompt?.setText('HOLD TO REV • RELEASE TO DRIVE');
+  };
+
   proto.launchVehicle = function (): void {
     if (!this.rig || this.launched) return;
     this.launched = true;
     this.charging = false;
 
-    const power = (0.7 + this.charge * 0.62) * this.rig.spec.power;
-
-    // Nearly all launch energy is forward. Gravity, wheel contact, suspension,
-    // and the shallow ramp now create the jump instead of an instant Y boost.
-    this.rig.launch(21.5 * power, -1.4 * power);
-    this.rig.chassis.setAngularVelocity(-0.008);
+    // Charge determines the target road speed. beginDrive releases the static
+    // bodies at rest; acceleration then comes from the spinning wheels and a
+    // small forward drivetrain force rather than an instant velocity change.
+    const targetSpeed = (13.5 + this.charge * 12.5) * this.rig.spec.power;
+    this.rig.beginDrive(targetSpeed);
 
     this.chargePanel?.setVisible(false);
     this.rotateControls.forEach((control: any) => control.setVisible(true));
-    playSfx(this, 'launch', { volume: 0.92, rate: 0.9 + this.charge * 0.28 });
-    HapticsService.impact();
-    this.explodeParticles(this.rig.x - 100, this.rig.y + 35, 'dust', 28, 0xfff6d5, 2.1);
-    this.cameras.main.flash(140, 255, 246, 213, false, undefined, this);
+    playSfx(this, 'launch', { volume: 0.38, rate: 0.76 + this.charge * 0.16 });
+    HapticsService.selection();
+    this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 12, 0xfff6d5, 1.1);
+  };
+
+  const originalUpdate = proto.update;
+  proto.update = function (time: number, delta: number): void {
+    if (this.launched && this.rig && !this.ending) {
+      this.rig.applyDrive(Math.min(0.034, delta / 1000));
+    }
+    originalUpdate.call(this, time, delta);
   };
 }

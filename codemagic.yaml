@@ -150,7 +150,6 @@ workflows:
 
     artifacts:
       - testflight/*.ipa
-      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
 
     publishing:

@@ -117,14 +117,15 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     this.launched = true;
     this.charging = false;
 
-    const targetSpeed = (13.5 + this.charge * 12.5) * this.rig.spec.power;
+    const targetSpeed = (27 + this.charge * 25) * this.rig.spec.power;
     this.rig.beginDrive(targetSpeed);
 
     this.chargePanel?.setVisible(false);
     this.rotateControls.forEach((control: any) => control.setVisible(true));
-    playSfx(this, 'launch', { volume: 0.38, rate: 0.76 + this.charge * 0.16 });
-    HapticsService.selection();
-    this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 12, 0xfff6d5, 1.1);
+    playSfx(this, 'launch', { volume: 0.62, rate: 0.9 + this.charge * 0.22 });
+    HapticsService.impact();
+    this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 20, 0xfff6d5, 1.35);
+    this.cameras.main.shake(110, 0.0035);
   };
 
   const originalBindCollisions = proto.bindCollisions;

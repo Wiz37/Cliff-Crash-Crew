@@ -1,5 +1,10 @@
-.godot/
-.export/
-*.tmp
-*.log
+node_modules/
+dist/
 .DS_Store
+*.log
+.env*
+android/
+ios/
+.vscode/
+.idea/
+coverage/

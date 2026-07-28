@@ -1,0 +1,14 @@
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  base: './',
+  assetsInclude: ['**/*.wav'],
+  build: {
+    target: 'es2022',
+    sourcemap: true,
+    assetsInlineLimit: 4096,
+  },
+  server: {
+    port: 5173,
+  },
+});

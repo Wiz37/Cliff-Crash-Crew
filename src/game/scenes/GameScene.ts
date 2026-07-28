@@ -271,8 +271,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private bindCollisions(): void {
-    this.matter.world.on('collisionstart', (event: { pairs: MatterJS.Pair[] }) => {
-      event.pairs.forEach((pair) => {
+    this.matter.world.on('collisionstart', (event: any) => {
+      event.pairs.forEach((pair: any) => {
         const bodyA = pair.bodyA;
         const bodyB = pair.bodyB;
         const objectA = bodyA.gameObject as Phaser.Physics.Matter.Image | undefined;
@@ -411,8 +411,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.distance = Math.max(0, (this.rig.x - this.startX) / 6.2);
-    this.score += Math.max(0, this.rig.chassis.body.velocity.x) * dt * 11;
-    this.score += Math.abs((this.rig.chassis.body as MatterJS.BodyType).angularVelocity) * dt * 170;
+    const chassisBody = this.rig.chassis.body as MatterJS.BodyType;
+    this.score += Math.max(0, chassisBody.velocity.x) * dt * 11;
+    this.score += Math.abs(chassisBody.angularVelocity) * dt * 170;
     this.checkChallenge();
     this.updateHud();
 

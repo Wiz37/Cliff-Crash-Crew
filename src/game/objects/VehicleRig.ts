@@ -125,7 +125,8 @@ export class VehicleRig {
       this.leftAttached = false;
       this.scene.matter.world.removeConstraint(this.leftConstraint);
       this.leftWheel.setCollisionGroup(0);
-      this.leftWheel.setVelocity(this.chassis.body.velocity.x - 2, this.chassis.body.velocity.y - 4);
+      const chassisBody = this.chassis.body as MatterJS.BodyType;
+      this.leftWheel.setVelocity(chassisBody.velocity.x - 2, chassisBody.velocity.y - 4);
       this.leftWheel.setAngularVelocity(-0.2);
       return true;
     }
@@ -133,7 +134,8 @@ export class VehicleRig {
       this.rightAttached = false;
       this.scene.matter.world.removeConstraint(this.rightConstraint);
       this.rightWheel.setCollisionGroup(0);
-      this.rightWheel.setVelocity(this.chassis.body.velocity.x + 2, this.chassis.body.velocity.y - 4);
+      const chassisBody = this.chassis.body as MatterJS.BodyType;
+      this.rightWheel.setVelocity(chassisBody.velocity.x + 2, chassisBody.velocity.y - 4);
       this.rightWheel.setAngularVelocity(0.2);
       return true;
     }

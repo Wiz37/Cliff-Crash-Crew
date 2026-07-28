@@ -27,7 +27,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     default: 'matter',
     matter: {
       gravity: { x: 0, y: 1.35 },
-      enableSleep: true,
+      enableSleeping: true,
       positionIterations: 8,
       velocityIterations: 8,
       constraintIterations: 4,

@@ -8,3 +8,5 @@ ios/
 .vscode/
 .idea/
 coverage/
+.build/
+testflight/

@@ -11,7 +11,7 @@ function getSound(scene: Phaser.Scene, key: string): Phaser.Sound.BaseSound | un
 export function ensureMusic(scene: Phaser.Scene): Phaser.Sound.BaseSound {
   let music = getSound(scene, MUSIC_REGISTRY_KEY);
   if (!music) {
-    music = scene.sound.add('music', { loop: true, volume: 0.34 });
+    music = scene.sound.add('music', { loop: true, volume: 0.3 });
     scene.registry.set(MUSIC_REGISTRY_KEY, music);
   }
   const save = SaveService.get();
@@ -35,7 +35,7 @@ export function playSfx(scene: Phaser.Scene, key: string, config: Phaser.Types.S
 export function startEngine(scene: Phaser.Scene): Phaser.Sound.BaseSound {
   let engine = getSound(scene, ENGINE_REGISTRY_KEY);
   if (!engine) {
-    engine = scene.sound.add('engine', { loop: true, volume: 0.12 });
+    engine = scene.sound.add('engine', { loop: true, volume: 0.15 });
     scene.registry.set(ENGINE_REGISTRY_KEY, engine);
   }
   if (SaveService.get().soundEnabled && !engine.isPlaying) engine.play();
@@ -50,8 +50,9 @@ export function stopEngine(scene: Phaser.Scene): void {
 export function setEngineIntensity(scene: Phaser.Scene, value: number): void {
   const engine = startEngine(scene);
   const intensity = Phaser.Math.Clamp(value, 0, 1);
-  const rate = 0.72 + intensity * 0.7;
-  const volume = 0.08 + intensity * 0.18;
+  const eased = Phaser.Math.Easing.Cubic.Out(intensity);
+  const rate = 0.76 + eased * 1.02;
+  const volume = 0.1 + intensity * 0.25;
   (engine as Phaser.Sound.WebAudioSound).setRate?.(rate);
   (engine as Phaser.Sound.WebAudioSound).setVolume?.(volume);
 }

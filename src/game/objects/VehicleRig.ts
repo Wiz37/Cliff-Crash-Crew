@@ -32,43 +32,57 @@ export class VehicleRig {
     const noSelfCollision = scene.matter.world.nextGroup(true);
 
     this.chassis = scene.matter.add.image(x, y, `vehicle-${spec.id}`, undefined, {
-      friction: 0.5,
-      frictionAir: 0.008,
-      restitution: 0.24,
+      friction: 0.62,
+      frictionAir: 0.004,
+      restitution: 0.14,
       density: 0.0032 * spec.mass,
-      sleepThreshold: 50,
+      sleepThreshold: 60,
     });
     this.chassis.setScale(0.78);
-    this.chassis.setRectangle(bodyWidth, bodyHeight, { chamfer: { radius: Math.min(18, bodyHeight * 0.22) } });
+    this.chassis.setRectangle(bodyWidth, bodyHeight, {
+      chamfer: { radius: Math.min(18, bodyHeight * 0.22) },
+    });
     this.chassis.setCollisionGroup(noSelfCollision);
     this.chassis.setDepth(30);
     this.chassis.setData('rig', this);
     this.chassis.setData('part', 'chassis');
     (this.chassis.body as MatterJS.BodyType).label = 'vehicle-chassis';
 
-    this.leftWheel = this.createWheel(x - wheelOffsetX, y + wheelOffsetY, wheelRadius, noSelfCollision, 'left');
-    this.rightWheel = this.createWheel(x + wheelOffsetX, y + wheelOffsetY, wheelRadius, noSelfCollision, 'right');
+    this.leftWheel = this.createWheel(
+      x - wheelOffsetX,
+      y + wheelOffsetY,
+      wheelRadius,
+      noSelfCollision,
+      'left',
+    );
+    this.rightWheel = this.createWheel(
+      x + wheelOffsetX,
+      y + wheelOffsetY,
+      wheelRadius,
+      noSelfCollision,
+      'right',
+    );
 
     this.leftConstraint = scene.matter.add.constraint(
       this.chassis.body as MatterJS.BodyType,
       this.leftWheel.body as MatterJS.BodyType,
       0,
-      0.82,
+      0.9,
       {
         pointA: { x: -wheelOffsetX, y: wheelOffsetY },
-        damping: 0.16,
-        stiffness: 0.82,
+        damping: 0.22,
+        stiffness: 0.9,
       },
     );
     this.rightConstraint = scene.matter.add.constraint(
       this.chassis.body as MatterJS.BodyType,
       this.rightWheel.body as MatterJS.BodyType,
       0,
-      0.82,
+      0.9,
       {
         pointA: { x: wheelOffsetX, y: wheelOffsetY },
-        damping: 0.16,
-        stiffness: 0.82,
+        damping: 0.22,
+        stiffness: 0.9,
       },
     );
 
@@ -83,12 +97,12 @@ export class VehicleRig {
     side: WheelSide,
   ): Phaser.Physics.Matter.Image {
     const wheel = this.scene.matter.add.image(x, y, 'wheel', undefined, {
-      friction: 1.1,
-      frictionStatic: 1.5,
-      frictionAir: 0.008,
-      restitution: 0.34,
-      density: 0.0022 * this.spec.mass,
-      sleepThreshold: 50,
+      friction: 1.45,
+      frictionStatic: 2,
+      frictionAir: 0.004,
+      restitution: 0.18,
+      density: 0.0024 * this.spec.mass,
+      sleepThreshold: 60,
     });
     wheel.setDisplaySize(radius * 2.1, radius * 2.1);
     wheel.setCircle(radius);
@@ -109,7 +123,7 @@ export class VehicleRig {
   beginDrive(targetSpeed: number): void {
     if (this.launched) return;
     this.launched = true;
-    this.driveTargetSpeed = Phaser.Math.Clamp(targetSpeed, 12, 34);
+    this.driveTargetSpeed = Phaser.Math.Clamp(targetSpeed, 26, 62);
     this.setStatic(false);
 
     [this.chassis, this.leftWheel, this.rightWheel].forEach((part) => {
@@ -128,11 +142,11 @@ export class VehicleRig {
 
     const dt = Phaser.Math.Clamp(deltaSeconds, 0, 0.034);
     const targetAngularVelocity = Phaser.Math.Clamp(
-      this.driveTargetSpeed / Math.max(26, this.wheelRadius * 1.15),
-      0.2,
-      0.72,
+      this.driveTargetSpeed / Math.max(22, this.wheelRadius * 0.94),
+      0.5,
+      1.55,
     );
-    const response = 1 - Math.exp(-dt * (4.2 + this.spec.power));
+    const response = 1 - Math.exp(-dt * (8.5 + this.spec.power * 2.8));
 
     const spinWheel = (wheel: Phaser.Physics.Matter.Image): void => {
       const body = wheel.body as MatterJS.BodyType;
@@ -152,17 +166,26 @@ export class VehicleRig {
       1,
     );
 
-    if (this.chassis.x < 1435 && speedDeficit > 0) {
-      const driveForce = 0.00048
+    if (speedDeficit > 0) {
+      const tractionMultiplier = this.isGrounded ? 1 : 0.16;
+      const driveForce = 0.00105
         * this.spec.mass
-        * (0.75 + this.spec.power * 0.25)
-        * speedDeficit;
+        * (0.82 + this.spec.power * 0.38)
+        * speedDeficit
+        * tractionMultiplier;
       this.chassis.applyForce(new Phaser.Math.Vector2(driveForce, 0));
     }
 
     if (this.isGrounded) {
-      const damping = Math.pow(0.18, dt);
-      this.chassis.setAngularVelocity(chassisBody.angularVelocity * damping);
+      const rotationDamping = Math.pow(0.055, dt);
+      this.chassis.setAngularVelocity(chassisBody.angularVelocity * rotationDamping);
+
+      if (chassisBody.velocity.x > 24) {
+        const downforce = 0.00012
+          * this.spec.mass
+          * Phaser.Math.Clamp(chassisBody.velocity.x / 55, 0, 1);
+        this.chassis.applyForce(new Phaser.Math.Vector2(0, downforce));
+      }
     }
   }
 
@@ -175,8 +198,8 @@ export class VehicleRig {
     if (!this.launched || direction === 0) return;
 
     const body = this.chassis.body as MatterJS.BodyType;
-    const controlStrength = this.isGrounded ? 0.012 : 0.17;
-    const maximumRotationSpeed = this.isGrounded ? 0.05 : 0.24;
+    const controlStrength = this.isGrounded ? 0.008 : 0.17;
+    const maximumRotationSpeed = this.isGrounded ? 0.035 : 0.24;
     const next = Phaser.Math.Clamp(
       body.angularVelocity + direction * this.spec.spin * deltaSeconds * controlStrength,
       -maximumRotationSpeed,
@@ -211,8 +234,16 @@ export class VehicleRig {
     return this.groundContacts.size > 0;
   }
 
+  get targetSpeed(): number {
+    return this.driveTargetSpeed;
+  }
+
   get speed(): number {
     return (this.chassis.body as MatterJS.BodyType).speed;
+  }
+
+  get horizontalSpeed(): number {
+    return Math.abs((this.chassis.body as MatterJS.BodyType).velocity.x);
   }
 
   get rotation(): number {

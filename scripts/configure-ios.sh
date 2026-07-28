@@ -6,6 +6,7 @@ INFO_PLIST="$ROOT_DIR/ios/App/App/Info.plist"
 APPICON_DIR="$ROOT_DIR/ios/App/App/Assets.xcassets/AppIcon.appiconset"
 ICON_SOURCE="$ROOT_DIR/.build/AppIcon-1024.png"
 ICON_GENERATOR="$ROOT_DIR/scripts/generate-ios-icon.py"
+CONTENTS_JSON="$APPICON_DIR/Contents.json"
 
 if [ ! -f "$INFO_PLIST" ]; then
   echo "ERROR: Missing generated Info.plist: $INFO_PLIST"
@@ -51,24 +52,38 @@ mkdir -p "$APPICON_DIR"
 rm -f "$APPICON_DIR"/*.png
 cp "$ICON_SOURCE" "$APPICON_DIR/AppIcon-1024.png"
 
-cat > "$APPICON_DIR/Contents.json" <<'JSON'
-{
-  "images" : [
-    {
-      "filename" : "AppIcon-1024.png",
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    }
-  ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
-  }
+# Generate the asset-catalog manifest with Python's JSON serializer so it is
+# guaranteed to use valid JSON quoting and UTF-8 encoding on Codemagic macOS.
+python3 - "$CONTENTS_JSON" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+manifest = {
+    "images": [
+        {
+            "filename": "AppIcon-1024.png",
+            "idiom": "universal",
+            "platform": "ios",
+            "size": "1024x1024",
+        }
+    ],
+    "info": {
+        "author": "xcode",
+        "version": 1,
+    },
 }
-JSON
+path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+# Parse it immediately so this step fails here with a clear message rather
+# than later during the Xcode archive.
+with path.open("r", encoding="utf-8") as handle:
+    json.load(handle)
+print(f"{path}: JSON OK")
+PY
 
 plutil -lint "$INFO_PLIST"
-plutil -lint "$APPICON_DIR/Contents.json"
+python3 -m json.tool "$CONTENTS_JSON" >/dev/null
 
 echo "Configured Cliff Crash Crew iOS metadata and app icon."

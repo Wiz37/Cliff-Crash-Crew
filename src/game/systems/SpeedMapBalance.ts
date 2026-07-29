@@ -2,17 +2,18 @@ import Phaser from 'phaser';
 import { LEVELS } from '../data/levels';
 import { VehicleRig } from '../objects/VehicleRig';
 
-const WORLD_SPEED_PER_MPH = 0.42;
+const WORLD_SPEED_PER_MPH = 0.32;
 const MAX_DISPLAY_MPH = 100;
-const BALANCED_CLEAR_SCORES = [1800, 3200, 4700, 6300, 8000, 9800];
+const BALANCED_CLEAR_SCORES = [1600, 2800, 4000, 5400, 6900, 8400];
+const RAMP_LOWERING = [40, 44, 48, 52, 56, 60];
 
 let installed = false;
 
 /**
  * Keeps the 50–100 MPH player-facing range while calibrating world movement to
- * the actual course scale. The base drivetrain still follows the road angle,
- * but acceleration and airborne carry are limited so vehicles land inside the
- * intended demolition zones instead of skipping large sections of the map.
+ * the actual course scale. Acceleration remains responsive, but the vehicle no
+ * longer crosses huge portions of a map in one jump. Ramps also sit closer to
+ * their landing zones so airtime stays useful without becoming uncontrollable.
  */
 export function installSpeedMapBalance(): void {
   if (installed) return;
@@ -20,6 +21,7 @@ export function installSpeedMapBalance(): void {
 
   LEVELS.forEach((level, index) => {
     level.passScore = BALANCED_CLEAR_SCORES[index] ?? level.passScore;
+    level.rampEndY += RAMP_LOWERING[index] ?? 0;
   });
 
   const proto = VehicleRig.prototype as any;
@@ -40,9 +42,9 @@ export function installSpeedMapBalance(): void {
 
     let body = this.chassis.body as MatterJS.BodyType;
 
-    // Build speed progressively rather than snapping close to the selected MPH.
+    // Build speed progressively instead of snapping to the selected MPH.
     if (!this.impactBraking) {
-      const accelerationPerSecond = 25 + this.spec.power * 12;
+      const accelerationPerSecond = 20 + this.spec.power * 10;
       const maximumSpeedThisFrame = Math.min(
         this.driveTargetSpeed,
         beforeSpeed + accelerationPerSecond * dt,
@@ -55,10 +57,10 @@ export function installSpeedMapBalance(): void {
       }
     }
 
-    // Reduce excessive long-distance airborne carry without flattening the jump.
-    if (!this.isGrounded && this.driveElapsed > 0.65 && !this.impactBraking) {
-      const horizontalDrag = Math.exp(-0.38 * dt);
-      const verticalDrag = Math.exp(-0.08 * dt);
+    // Shorten excessive airborne carry while preserving the natural jump arc.
+    if (!this.isGrounded && this.driveElapsed > 0.45 && !this.impactBraking) {
+      const horizontalDrag = Math.exp(-0.55 * dt);
+      const verticalDrag = Math.exp(-0.12 * dt);
       this.chassis.setVelocity(
         body.velocity.x * horizontalDrag,
         body.velocity.y * verticalDrag,
@@ -66,8 +68,8 @@ export function installSpeedMapBalance(): void {
       body = this.chassis.body as MatterJS.BodyType;
     }
 
-    // Never let terrain or collision resolution accelerate past the selected MPH.
-    const maximumWorldSpeed = this.driveTargetSpeed * 1.04;
+    // Terrain and collision resolution cannot push the vehicle above its target.
+    const maximumWorldSpeed = this.driveTargetSpeed * 1.02;
     if (!this.impactBraking && body.speed > maximumWorldSpeed && body.speed > 0.001) {
       const scale = maximumWorldSpeed / body.speed;
       this.chassis.setVelocity(body.velocity.x * scale, body.velocity.y * scale);

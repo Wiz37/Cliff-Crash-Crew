@@ -25,79 +25,51 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     terrain.fillStyle(COLORS.grassDark, 1);
     terrain.beginPath();
     terrain.moveTo(500, 1490);
-    terrain.lineTo(1200, 1310);
-    terrain.lineTo(1380, 1310);
+    terrain.lineTo(1450, 1338);
+    terrain.lineTo(1750, 1338);
     terrain.lineTo(720, 1490);
     terrain.closePath();
     terrain.fillPath();
     terrain.lineStyle(18, COLORS.grass, 1);
-    terrain.lineBetween(500, 1488, 1200, 1310);
-    terrain.lineBetween(1200, 1310, 1380, 1310);
+    terrain.lineBetween(500, 1488, 1450, 1338);
+    terrain.lineBetween(1450, 1338, 1750, 1338);
 
     terrain.fillStyle(0x3a8f4e, 1);
-    terrain.fillRect(1030, 1730, 4650, 520);
+    terrain.fillRect(1750, 1730, 6250, 520);
     terrain.fillStyle(COLORS.grass, 1);
-    terrain.fillRect(1030, 1704, 4650, 36);
-
-    terrain.fillStyle(0x2e6d3d, 1);
-    terrain.fillTriangle(2260, 1705, 2500, 1460, 2700, 1705);
-    terrain.lineStyle(16, COLORS.grass, 1);
-    terrain.lineBetween(2260, 1705, 2500, 1460);
-    terrain.lineBetween(2500, 1460, 2700, 1705);
-
-    terrain.fillStyle(0x285f38, 1);
-    terrain.fillTriangle(3520, 1705, 3710, 1525, 3870, 1705);
-    terrain.lineStyle(16, COLORS.grass, 1);
-    terrain.lineBetween(3520, 1705, 3710, 1525);
-    terrain.lineBetween(3710, 1525, 3870, 1705);
-
-    terrain.fillStyle(0x203d31, 1);
-    for (let x = 1180; x < 5600; x += 320) {
-      terrain.fillCircle(x, 1748, 24);
-      terrain.fillCircle(x + 45, 1753, 16);
-    }
+    terrain.fillRect(1750, 1704, 6250, 36);
 
     const upperGround = this.matter.add.rectangle(260, 1620, 1050, 280, {
       isStatic: true,
       label: 'ground',
     });
-    const ramp = this.matter.add.rectangle(860, 1436, 724, 76, {
+    const ramp = this.matter.add.rectangle(980, 1414, 965, 76, {
       isStatic: true,
-      angle: -0.249,
+      angle: -0.159,
       label: 'ground',
     });
-    const lip = this.matter.add.rectangle(1290, 1342, 180, 64, {
+    const lip = this.matter.add.rectangle(1600, 1370, 300, 64, {
       isStatic: true,
       angle: 0,
       label: 'ground',
     });
-    const lowerGround = this.matter.add.rectangle(3300, 1840, 4850, 250, {
+    const lowerGround = this.matter.add.rectangle(4875, 1840, 6250, 250, {
       isStatic: true,
-      label: 'ground',
-    });
-    const bumpOne = this.matter.add.rectangle(2480, 1596, 350, 60, {
-      isStatic: true,
-      angle: -0.66,
-      label: 'ground',
-    });
-    const bumpTwo = this.matter.add.rectangle(3700, 1620, 260, 54, {
-      isStatic: true,
-      angle: -0.62,
       label: 'ground',
     });
 
-    [upperGround, ramp, lip, lowerGround, bumpOne, bumpTwo].forEach((body) => {
-      body.friction = 0.92;
-      body.restitution = 0.14;
+    [upperGround, ramp, lip, lowerGround].forEach((body) => {
+      body.friction = 1.08;
+      body.restitution = 0.055;
     });
 
-    ramp.friction = 1;
-    ramp.restitution = 0.025;
-    lip.friction = 1;
-    lip.restitution = 0.025;
+    ramp.friction = 1.2;
+    ramp.restitution = 0.015;
+    lip.friction = 1.15;
+    lip.restitution = 0.015;
 
     const warning = this.add
-      .text(1220, 1200, 'RUN IT OFF!', labelStyle(38, '#ff4d86'))
+      .text(1660, 1215, '100 MPH RUN-OFF', labelStyle(38, '#ff4d86'))
       .setRotation(-0.02)
       .setDepth(5);
     warning.setStroke('#151629', 8);
@@ -109,7 +81,7 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     const prompt = this.children.list.find(
       (child: any) => typeof child?.text === 'string' && child.text.includes('HOLD TO CHARGE'),
     ) as any;
-    prompt?.setText('HOLD TO REV • 20–80 MPH');
+    prompt?.setText('HOLD TO REV • 50–100 MPH');
   };
 
   proto.launchVehicle = function (): void {
@@ -117,18 +89,18 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     this.launched = true;
     this.charging = false;
 
-    // Charge selects a calibrated road-speed target. Vehicle power now affects
-    // acceleration and momentum, but every vehicle uses the same clear 20–80
-    // MPH control range so the meter remains predictable.
-    const targetMph = 20 + this.charge * 60;
+    // Charge oscillates from 0.08–1. Normalize that range so the player receives
+    // exactly 50 MPH at the bottom and 100 MPH at full charge.
+    const normalizedCharge = Math.max(0, Math.min(1, (this.charge - 0.08) / 0.92));
+    const targetMph = 50 + normalizedCharge * 50;
     this.rig.beginDrive(targetMph);
 
     this.chargePanel?.setVisible(false);
     this.rotateControls.forEach((control: any) => control.setVisible(true));
-    playSfx(this, 'launch', { volume: 0.62, rate: 0.9 + this.charge * 0.22 });
+    playSfx(this, 'launch', { volume: 0.68, rate: 0.98 + normalizedCharge * 0.28 });
     HapticsService.impact();
-    this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 20, 0xfff6d5, 1.35);
-    this.cameras.main.shake(110, 0.0035);
+    this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 24, 0xfff6d5, 1.5);
+    this.cameras.main.shake(125, 0.0042);
   };
 
   const originalBindCollisions = proto.bindCollisions;

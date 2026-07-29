@@ -8,10 +8,12 @@ import { SaveService } from './game/services/SaveService';
 import { installNaturalRampTuning } from './game/systems/NaturalRampTuning';
 import { installLevelProgression } from './game/systems/LevelProgression';
 import { installPremiumGameplay } from './game/systems/PremiumGameplay';
+import { installCrashMomentumTuning } from './game/systems/CrashMomentumTuning';
 
 installNaturalRampTuning(GameScene);
 installLevelProgression(GameScene);
 installPremiumGameplay(GameScene);
+installCrashMomentumTuning(GameScene);
 
 const game = new Phaser.Game(gameConfig);
 

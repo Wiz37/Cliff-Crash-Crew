@@ -25,6 +25,8 @@ export class VehicleRig {
   private driveTargetMph = MIN_TARGET_MPH;
   private driveElapsed = 0;
   private surfaceAngle = 0;
+  private impactBraking = false;
+  private impactBrakeLevel = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, spec: VehicleSpec) {
     this.scene = scene;
@@ -132,6 +134,8 @@ export class VehicleRig {
     this.launched = true;
     this.driveElapsed = 0;
     this.surfaceAngle = 0;
+    this.impactBraking = false;
+    this.impactBrakeLevel = 0;
     this.driveTargetMph = Phaser.Math.Clamp(targetMph, MIN_TARGET_MPH, MAX_TARGET_MPH);
     this.driveTargetSpeed = this.driveTargetMph * MPH_TO_MATTER_SPEED;
     this.setStatic(false);
@@ -147,6 +151,37 @@ export class VehicleRig {
     this.beginDrive(targetMph);
   }
 
+  registerBlockImpact(impactSpeed: number): void {
+    const chassisBody = this.chassis.body as MatterJS.BodyType;
+    const severity = Phaser.Math.Clamp(impactSpeed / Math.max(1, this.driveTargetSpeed), 0.18, 1);
+
+    this.impactBraking = true;
+    this.impactBrakeLevel = Phaser.Math.Clamp(
+      this.impactBrakeLevel + 0.24 + severity * 0.22,
+      0.38,
+      1,
+    );
+
+    // The collision immediately consumes momentum, then progressive braking in
+    // applyDrive carries the vehicle smoothly toward a complete stop.
+    const retainedMomentum = Phaser.Math.Clamp(
+      0.82 - severity * 0.18 - this.impactBrakeLevel * 0.08,
+      0.5,
+      0.72,
+    );
+    this.chassis.setVelocity(
+      chassisBody.velocity.x * retainedMomentum,
+      chassisBody.velocity.y * retainedMomentum,
+    );
+    this.chassis.setAngularVelocity(chassisBody.angularVelocity * 0.72);
+    this.leftWheel.setAngularVelocity(
+      (this.leftWheel.body as MatterJS.BodyType).angularVelocity * retainedMomentum,
+    );
+    this.rightWheel.setAngularVelocity(
+      (this.rightWheel.body as MatterJS.BodyType).angularVelocity * retainedMomentum,
+    );
+  }
+
   applyDrive(deltaSeconds: number): void {
     if (!this.launched) return;
 
@@ -155,7 +190,8 @@ export class VehicleRig {
 
     const chassisBody = this.chassis.body as MatterJS.BodyType;
     const startAssist = this.driveElapsed < 0.6;
-    const hasRoadGrip = this.isGrounded || startAssist;
+    const hasSurfaceContact = this.isGrounded || startAssist;
+    const canAccelerate = hasSurfaceContact && !this.impactBraking;
 
     if (this.isGrounded && this.leftAttached && this.rightAttached) {
       const wheelDx = this.rightWheel.x - this.leftWheel.x;
@@ -179,7 +215,7 @@ export class VehicleRig {
       chassisBody.velocity.x * tangentX + chassisBody.velocity.y * tangentY,
     );
 
-    if (hasRoadGrip && currentTangentSpeed < this.driveTargetSpeed) {
+    if (canAccelerate && currentTangentSpeed < this.driveTargetSpeed) {
       const accelerationPerSecond = 58 + this.spec.power * 28;
       const nextTangentSpeed = Math.min(
         this.driveTargetSpeed,
@@ -193,7 +229,7 @@ export class VehicleRig {
         nextTangentSpeed * tangentX + retainedNormalSpeed * normalX,
         nextTangentSpeed * tangentY + retainedNormalSpeed * normalY,
       );
-    } else if (hasRoadGrip && currentTangentSpeed > this.driveTargetSpeed) {
+    } else if (canAccelerate && currentTangentSpeed > this.driveTargetSpeed) {
       const currentNormalSpeed = chassisBody.velocity.x * normalX + chassisBody.velocity.y * normalY;
       this.chassis.setVelocity(
         this.driveTargetSpeed * tangentX + currentNormalSpeed * normalX,
@@ -201,17 +237,40 @@ export class VehicleRig {
       );
     }
 
+    if (this.impactBraking) {
+      const impactBody = this.chassis.body as MatterJS.BodyType;
+      const currentSpeed = impactBody.speed;
+      const brakingPerSecond = 30 + this.impactBrakeLevel * 58;
+      const nextSpeed = Math.max(0, currentSpeed - brakingPerSecond * dt);
+      const velocityScale = currentSpeed > 0.001 ? nextSpeed / currentSpeed : 0;
+
+      this.chassis.setVelocity(
+        impactBody.velocity.x * velocityScale,
+        impactBody.velocity.y * velocityScale,
+      );
+      this.chassis.setAngularVelocity(
+        impactBody.angularVelocity * Math.pow(0.028, dt),
+      );
+
+      if (nextSpeed < 0.22) {
+        this.chassis.setVelocity(0, 0);
+        this.chassis.setAngularVelocity(0);
+      }
+    }
+
     const updatedBody = this.chassis.body as MatterJS.BodyType;
-    const roadSpeed = hasRoadGrip
+    const roadSpeed = hasSurfaceContact
       ? Math.max(0, updatedBody.velocity.x * tangentX + updatedBody.velocity.y * tangentY)
       : updatedBody.speed;
     const roadAngularVelocity = roadSpeed / Math.max(18, this.wheelRadius);
-    const maximumSlip = this.isGrounded ? 0.035 : 0.12;
-    const speedDeficit = Phaser.Math.Clamp(
-      (this.driveTargetSpeed - roadSpeed) / Math.max(1, this.driveTargetSpeed),
-      0,
-      1,
-    );
+    const maximumSlip = this.isGrounded && !this.impactBraking ? 0.035 : 0.08;
+    const speedDeficit = this.impactBraking
+      ? 0
+      : Phaser.Math.Clamp(
+        (this.driveTargetSpeed - roadSpeed) / Math.max(1, this.driveTargetSpeed),
+        0,
+        1,
+      );
     const desiredWheelAngularVelocity = Phaser.Math.Clamp(
       roadAngularVelocity + speedDeficit * maximumSlip,
       0,
@@ -234,7 +293,7 @@ export class VehicleRig {
       const rotationDamping = Math.pow(0.038, dt);
       this.chassis.setAngularVelocity(updatedBody.angularVelocity * rotationDamping);
 
-      if (roadSpeed > 28) {
+      if (!this.impactBraking && roadSpeed > 28) {
         const downforce = 0.00014
           * this.spec.mass
           * Phaser.Math.Clamp(roadSpeed / this.driveTargetSpeed, 0, 1);
@@ -262,25 +321,9 @@ export class VehicleRig {
     this.chassis.setAngularVelocity(next);
   }
 
-  detachWheel(side: WheelSide): boolean {
-    if (side === 'left' && this.leftAttached) {
-      this.leftAttached = false;
-      this.scene.matter.world.removeConstraint(this.leftConstraint);
-      this.leftWheel.setCollisionGroup(0);
-      const chassisBody = this.chassis.body as MatterJS.BodyType;
-      this.leftWheel.setVelocity(chassisBody.velocity.x - 2, chassisBody.velocity.y - 4);
-      this.leftWheel.setAngularVelocity(-0.2);
-      return true;
-    }
-    if (side === 'right' && this.rightAttached) {
-      this.rightAttached = false;
-      this.scene.matter.world.removeConstraint(this.rightConstraint);
-      this.rightWheel.setCollisionGroup(0);
-      const chassisBody = this.chassis.body as MatterJS.BodyType;
-      this.rightWheel.setVelocity(chassisBody.velocity.x + 2, chassisBody.velocity.y - 4);
-      this.rightWheel.setAngularVelocity(0.2);
-      return true;
-    }
+  detachWheel(_side: WheelSide): boolean {
+    // Wheels are permanent parts of the vehicle. Keeping this no-op preserves
+    // compatibility with older impact code without ever removing a constraint.
     return false;
   }
 

@@ -39,7 +39,7 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
       .setDepth(205)
       .setColor('#fff6d5');
     this.add
-      .text(927, 562, 'SPEED', labelStyle(20, '#58ddff'))
+      .text(927, 562, 'MPH', labelStyle(20, '#58ddff'))
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(205);
@@ -71,18 +71,18 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
     baseUpdate.call(this, time, delta);
     if (!this.rig || this.ending) return;
 
-    const speed = this.rig.horizontalSpeed;
-    const speedRatio = Phaser.Math.Clamp(speed / 58, 0, 1);
-    const targetZoom = speed > 48 ? 0.72 : speed > 36 ? 0.77 : speed > 24 ? 0.84 : speed > 12 ? 0.92 : 1;
+    const mph = this.rig.speedMph;
+    const speedRatio = Phaser.Math.Clamp(mph / 80, 0, 1);
+    const targetZoom = mph > 70 ? 0.72 : mph > 55 ? 0.77 : mph > 40 ? 0.84 : mph > 25 ? 0.92 : 1;
     const zoomResponse = Math.min(1, (delta / 1000) * 3.8);
     this.cameras.main.zoom += (targetZoom - this.cameras.main.zoom) * zoomResponse;
 
-    setEngineIntensity(this, Phaser.Math.Clamp(0.16 + speedRatio * 0.94, 0, 1));
-    this.premiumSpeedText?.setText(String(Math.round(speed * 3.25)));
+    setEngineIntensity(this, Phaser.Math.Clamp(0.12 + speedRatio * 0.98, 0, 1));
+    this.premiumSpeedText?.setText(String(Math.round(mph)));
 
     const lines = this.premiumSpeedLines as Phaser.GameObjects.Graphics | undefined;
     lines?.clear();
-    const lineIntensity = Phaser.Math.Clamp((speed - 20) / 34, 0, 1);
+    const lineIntensity = Phaser.Math.Clamp((mph - 35) / 45, 0, 1);
     if (lines && lineIntensity > 0) {
       for (let index = 0; index < 14; index += 1) {
         const lane = (index * 139 + time * (0.18 + (index % 3) * 0.035)) % 1920;
@@ -96,7 +96,7 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
     const dust = this.premiumDust as Phaser.GameObjects.Particles.ParticleEmitter | undefined;
     if (dust) {
       dust.setPosition(this.rig.x - 115, this.rig.y + 42);
-      if (this.rig.isGrounded && speed > 15) dust.start();
+      if (this.rig.isGrounded && mph > 20) dust.start();
       else dust.stop();
     }
   };

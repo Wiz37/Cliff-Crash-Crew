@@ -66,49 +66,49 @@ function drawEnvironment(scene: any, level: LevelDefinition): void {
     .setBlendMode(Phaser.BlendModes.ADD);
 
   const environment = scene.add.graphics().setDepth(-58).setScrollFactor(0.58);
+  const courseEnd = level.courseLength + 300;
 
   if (level.theme === 'meadow') {
     environment.fillStyle(0x3f8f52, 0.55);
-    for (let x = 1300; x < 6400; x += 430) {
+    for (let x = 1300; x < courseEnd; x += 430) {
       environment.fillCircle(x, 1540 + (x % 3) * 12, 58);
       environment.fillCircle(x + 70, 1560, 42);
     }
     environment.lineStyle(10, 0xf4e7b2, 0.75);
-    for (let x = 1500; x < 6200; x += 310) {
+    for (let x = 1500; x < courseEnd; x += 310) {
       environment.lineBetween(x, 1580, x, 1680);
       environment.lineBetween(x, 1610, x + 250, 1610);
     }
   } else if (level.theme === 'construction') {
     environment.fillStyle(0x4f5964, 0.7);
-    for (let x = 1650; x < 6200; x += 980) {
+    for (let x = 1650; x < courseEnd; x += 980) {
       environment.fillRect(x, 1050, 40, 560);
       environment.fillRect(x - 130, 1050, 430, 34);
       environment.fillTriangle(x + 250, 1050, x + 330, 1050, x + 290, 1280);
     }
     environment.lineStyle(18, 0xffd43b, 0.75);
-    for (let x = 1500; x < 6200; x += 480) {
+    for (let x = 1500; x < courseEnd; x += 480) {
       environment.lineBetween(x, 1500, x + 180, 1620);
       environment.lineBetween(x + 180, 1500, x, 1620);
     }
   } else if (level.theme === 'canyon') {
     environment.fillStyle(0xb9653d, 0.72);
-    const mesas = [1650, 2700, 3900, 5200, 6250];
-    mesas.forEach((x, index) => {
+    for (let x = 1600, index = 0; x < courseEnd; x += 1050, index += 1) {
       const top = 730 + (index % 2) * 110;
       environment.fillTriangle(x - 430, 1600, x - 180, top, x + 60, 1600);
       environment.fillTriangle(x - 50, 1600, x + 170, top + 80, x + 440, 1600);
       environment.fillRect(x - 180, top, 350, 80);
-    });
+    }
   } else if (level.theme === 'quarry') {
     environment.fillStyle(0x65727d, 0.78);
-    for (let x = 1450; x < 6300; x += 520) {
+    for (let x = 1450; x < courseEnd; x += 520) {
       const base = 1650;
       environment.fillTriangle(x - 220, base, x, base - 270 - (x % 180), x + 230, base);
       environment.fillCircle(x - 80, base - 55, 86);
       environment.fillCircle(x + 65, base - 40, 110);
     }
   } else if (level.theme === 'skyway') {
-    for (let x = 1350; x < 6400; x += 470) {
+    for (let x = 1350; x < courseEnd; x += 470) {
       scene.add
         .image(x, 1860 + (x % 4) * 35, 'cloud')
         .setScale(1.35 + (x % 3) * 0.12)
@@ -122,7 +122,7 @@ function drawEnvironment(scene: any, level: LevelDefinition): void {
     });
   } else {
     environment.fillStyle(0x202033, 0.9);
-    for (let x = 1350; x < 6400; x += 270) {
+    for (let x = 1350; x < courseEnd; x += 270) {
       const height = 260 + (x % 5) * 62;
       environment.fillRect(x, 1680 - height, 170, height);
       environment.fillStyle(level.accent, 0.72);
@@ -133,7 +133,7 @@ function drawEnvironment(scene: any, level: LevelDefinition): void {
       environment.fillStyle(0x202033, 0.9);
     }
     environment.lineStyle(10, level.accent, 0.7);
-    for (let x = 1550; x < 6200; x += 520) environment.lineBetween(x, 1030, x, 1670);
+    for (let x = 1550; x < courseEnd; x += 520) environment.lineBetween(x, 1030, x, 1670);
   }
 }
 
@@ -144,6 +144,7 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
   const proto = GameSceneClass.prototype as any;
   const baseCreate = proto.create;
   const baseCreateTower = proto.createTower;
+  const baseFinishRun = proto.finishRun;
 
   proto.createTerrain = function (): void {
     const level = (this.activeLevel ?? getLevel(SaveService.get().selectedLevel)) as LevelDefinition;
@@ -176,31 +177,32 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
     terrain.lineBetween(rampEndX, rampEndY, lipEndX, rampEndY);
 
     if (elevated) {
-      drawRoadLine(terrain, level.terrain, 104, level.roadFill, 1);
-      drawRoadLine(terrain, level.terrain, 16, level.roadEdge, 1);
+      drawRoadLine(terrain, level.terrain, 108, level.roadFill, 1);
+      drawRoadLine(terrain, level.terrain, 18, level.roadEdge, 1);
     } else {
       terrain.fillStyle(level.roadFill, 1);
       terrain.beginPath();
       terrain.moveTo(level.terrain[0].x, level.terrain[0].y);
       level.terrain.slice(1).forEach((point) => terrain.lineTo(point.x, point.y));
-      terrain.lineTo(level.terrain[level.terrain.length - 1].x, level.catchFloorY + 260);
+      terrain.lineTo(level.courseLength, level.catchFloorY + 260);
       terrain.lineTo(level.terrain[0].x, level.catchFloorY + 260);
       terrain.closePath();
       terrain.fillPath();
       drawRoadLine(terrain, level.terrain, 18, level.roadEdge, 1);
     }
 
+    const safetyWidth = level.courseLength - 1400;
     const safety = this.add.graphics().setDepth(2);
     safety.fillStyle(elevated ? 0x34344d : level.roadFill, elevated ? 0.52 : 1);
-    safety.fillRect(1400, level.catchFloorY, 4900, 300);
+    safety.fillRect(1400, level.catchFloorY, safetyWidth, 300);
     safety.lineStyle(10, elevated ? level.accent : level.roadEdge, elevated ? 0.55 : 0.85);
-    safety.lineBetween(1400, level.catchFloorY, 6300, level.catchFloorY);
+    safety.lineBetween(1400, level.catchFloorY, level.courseLength, level.catchFloorY);
 
     const upperGround = this.matter.add.rectangle(250, upperSurfaceY + 130, 1040, 280, {
       isStatic: true,
       label: 'ground',
     });
-    const ramp = addSlopeBody(this, rampStartX, rampStartY, rampEndX, rampEndY, 74);
+    const ramp = addSlopeBody(this, rampStartX, rampStartY, rampEndX, rampEndY, 78);
     const lip = this.matter.add.rectangle(
       rampEndX + level.lipLength * 0.5,
       rampEndY + 31,
@@ -208,26 +210,29 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
       62,
       { isStatic: true, label: 'ground' },
     );
-    const safetyFloor = this.matter.add.rectangle(3850, level.catchFloorY + 110, 4900, 220, {
-      isStatic: true,
-      label: 'ground',
-    });
+    const safetyFloor = this.matter.add.rectangle(
+      1400 + safetyWidth * 0.5,
+      level.catchFloorY + 110,
+      safetyWidth,
+      220,
+      { isStatic: true, label: 'ground' },
+    );
 
     const groundBodies: MatterJS.BodyType[] = [upperGround, ramp, lip, safetyFloor];
     for (let index = 0; index < level.terrain.length - 1; index += 1) {
       const start = level.terrain[index];
       const end = level.terrain[index + 1];
-      groundBodies.push(addSlopeBody(this, start.x, start.y, end.x, end.y, elevated ? 82 : 74));
+      groundBodies.push(addSlopeBody(this, start.x, start.y, end.x, end.y, elevated ? 86 : 78));
     }
 
     groundBodies.forEach((body) => {
-      body.friction = 1.08;
-      body.restitution = 0.055;
+      body.friction = 1.12;
+      body.restitution = 0.045;
     });
-    ramp.friction = 1.2;
-    ramp.restitution = 0.015;
-    lip.friction = 1.15;
-    lip.restitution = 0.015;
+    ramp.friction = 1.25;
+    ramp.restitution = 0.012;
+    lip.friction = 1.2;
+    lip.restitution = 0.012;
 
     const sign = this.add
       .text(lipEndX - 20, rampEndY - 105, level.name, labelStyle(34, '#fff6d5'))
@@ -247,12 +252,28 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
     baseCreateTower.call(this, tower.x, surfaceYAt(level, tower.x) - 6, tower.rows, tower.columns);
   };
 
+  proto.finishRun = function (): void {
+    const level = (this.activeLevel ?? getLevel(SaveService.get().selectedLevel)) as LevelDefinition;
+    const reachedEnd = Boolean(this.rig) && this.rig.x >= level.courseLength - 420;
+    const fallenOut = Boolean(this.rig) && this.rig.y > 2200;
+    const settled = this.runTime > 4 && this.settleTime > 1.45;
+    const timedOut = this.runTime > 30;
+
+    // The original scene asks to finish at x > 5850 or after 20 seconds. Ignore
+    // those legacy limits until the longer 50–100 MPH course is actually done.
+    if (!reachedEnd && !fallenOut && !settled && !timedOut) return;
+    baseFinishRun.call(this);
+  };
+
   proto.create = function (...args: unknown[]): void {
     this.activeLevel = getLevel(SaveService.get().selectedLevel);
     this.levelTowerCursor = 0;
     baseCreate.apply(this, args);
 
     const level = this.activeLevel as LevelDefinition;
+    this.matter.world.setBounds(0, 0, level.courseLength, 2280, 220, true, true, false, true);
+    this.cameras.main.setBounds(0, 0, level.courseLength, 1920);
+
     while (this.levelTowerCursor < level.towers.length) {
       const tower = level.towers[this.levelTowerCursor];
       this.levelTowerCursor += 1;
@@ -261,9 +282,9 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
 
     const panel = this.add.graphics().setScrollFactor(0).setDepth(202);
     panel.fillStyle(COLORS.ink, 0.9);
-    panel.fillRoundedRect(235, 316, 610, 104, 34);
+    panel.fillRoundedRect(215, 316, 650, 112, 34);
     panel.lineStyle(5, level.accent, 1);
-    panel.strokeRoundedRect(235, 316, 610, 104, 34);
+    panel.strokeRoundedRect(215, 316, 650, 112, 34);
 
     this.add
       .text(540, 348, `MAP ${level.id}  •  ${level.name}`, labelStyle(24, '#fff6d5'))
@@ -271,7 +292,7 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
       .setScrollFactor(0)
       .setDepth(203);
     this.add
-      .text(540, 392, `CLEAR SCORE  ${level.passScore.toLocaleString()}`, labelStyle(25, '#ffd43b'))
+      .text(540, 394, `50–100 MPH  •  CLEAR ${level.passScore.toLocaleString()}`, labelStyle(24, '#ffd43b'))
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(203);

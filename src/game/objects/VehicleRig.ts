@@ -23,6 +23,8 @@ export class VehicleRig {
   private launched = false;
   private driveTargetSpeed = 0;
   private driveTargetMph = MIN_TARGET_MPH;
+  private driveElapsed = 0;
+  private surfaceAngle = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, spec: VehicleSpec) {
     this.scene = scene;
@@ -128,6 +130,8 @@ export class VehicleRig {
   beginDrive(targetMph: number): void {
     if (this.launched) return;
     this.launched = true;
+    this.driveElapsed = 0;
+    this.surfaceAngle = 0;
     this.driveTargetMph = Phaser.Math.Clamp(targetMph, MIN_TARGET_MPH, MAX_TARGET_MPH);
     this.driveTargetSpeed = this.driveTargetMph * MPH_TO_MATTER_SPEED;
     this.setStatic(false);
@@ -147,41 +151,73 @@ export class VehicleRig {
     if (!this.launched) return;
 
     const dt = Phaser.Math.Clamp(deltaSeconds, 0, 0.034);
+    this.driveElapsed += dt;
+
     const chassisBody = this.chassis.body as MatterJS.BodyType;
-    const forwardSpeed = Math.max(0, chassisBody.velocity.x);
+    const startAssist = this.driveElapsed < 0.6;
+    const hasRoadGrip = this.isGrounded || startAssist;
+
+    if (this.isGrounded && this.leftAttached && this.rightAttached) {
+      const wheelDx = this.rightWheel.x - this.leftWheel.x;
+      const wheelDy = this.rightWheel.y - this.leftWheel.y;
+      const measuredAngle = Phaser.Math.Clamp(Math.atan2(wheelDy, wheelDx), -0.34, 0.34);
+      const angleResponse = 1 - Math.exp(-dt * 18);
+      this.surfaceAngle += Phaser.Math.Angle.Wrap(measuredAngle - this.surfaceAngle) * angleResponse;
+    } else if (this.isGrounded) {
+      const measuredAngle = Phaser.Math.Clamp(this.chassis.rotation, -0.3, 0.3);
+      const angleResponse = 1 - Math.exp(-dt * 12);
+      this.surfaceAngle += Phaser.Math.Angle.Wrap(measuredAngle - this.surfaceAngle) * angleResponse;
+    }
+
+    const tangentX = Math.cos(this.surfaceAngle);
+    const tangentY = Math.sin(this.surfaceAngle);
+    const normalX = -tangentY;
+    const normalY = tangentX;
+
+    const currentTangentSpeed = Math.max(
+      0,
+      chassisBody.velocity.x * tangentX + chassisBody.velocity.y * tangentY,
+    );
+
+    if (hasRoadGrip && currentTangentSpeed < this.driveTargetSpeed) {
+      const accelerationPerSecond = 58 + this.spec.power * 28;
+      const nextTangentSpeed = Math.min(
+        this.driveTargetSpeed,
+        currentTangentSpeed + accelerationPerSecond * dt,
+      );
+
+      const currentNormalSpeed = chassisBody.velocity.x * normalX + chassisBody.velocity.y * normalY;
+      const retainedNormalSpeed = this.isGrounded ? Math.max(0, currentNormalSpeed) * 0.12 : currentNormalSpeed;
+
+      this.chassis.setVelocity(
+        nextTangentSpeed * tangentX + retainedNormalSpeed * normalX,
+        nextTangentSpeed * tangentY + retainedNormalSpeed * normalY,
+      );
+    } else if (hasRoadGrip && currentTangentSpeed > this.driveTargetSpeed) {
+      const currentNormalSpeed = chassisBody.velocity.x * normalX + chassisBody.velocity.y * normalY;
+      this.chassis.setVelocity(
+        this.driveTargetSpeed * tangentX + currentNormalSpeed * normalX,
+        this.driveTargetSpeed * tangentY + currentNormalSpeed * normalY,
+      );
+    }
+
+    const updatedBody = this.chassis.body as MatterJS.BodyType;
+    const roadSpeed = hasRoadGrip
+      ? Math.max(0, updatedBody.velocity.x * tangentX + updatedBody.velocity.y * tangentY)
+      : updatedBody.speed;
+    const roadAngularVelocity = roadSpeed / Math.max(18, this.wheelRadius);
+    const maximumSlip = this.isGrounded ? 0.035 : 0.12;
     const speedDeficit = Phaser.Math.Clamp(
-      (this.driveTargetSpeed - forwardSpeed) / Math.max(1, this.driveTargetSpeed),
+      (this.driveTargetSpeed - roadSpeed) / Math.max(1, this.driveTargetSpeed),
       0,
       1,
     );
-
-    // Chassis force supplies the acceleration. Tire animation follows road speed
-    // with only a small amount of controlled slip, preventing stationary burnout.
-    if (speedDeficit > 0) {
-      const progress = Phaser.Math.Clamp(forwardSpeed / Math.max(1, this.driveTargetSpeed), 0, 1);
-      const launchBoost = Phaser.Math.Linear(1.85, 0.78, progress);
-      const traction = this.isGrounded ? 1 : 0.035;
-      const driveForce = 0.0019
-        * this.spec.mass
-        * (0.9 + this.spec.power * 0.36)
-        * speedDeficit
-        * launchBoost
-        * traction;
-      this.chassis.applyForce(new Phaser.Math.Vector2(driveForce, 0));
-    }
-
-    if (chassisBody.velocity.x > this.driveTargetSpeed) {
-      this.chassis.setVelocity(this.driveTargetSpeed, chassisBody.velocity.y);
-    }
-
-    const roadAngularVelocity = forwardSpeed / Math.max(18, this.wheelRadius);
-    const maximumSlip = this.isGrounded ? 0.055 : 0.22;
     const desiredWheelAngularVelocity = Phaser.Math.Clamp(
       roadAngularVelocity + speedDeficit * maximumSlip,
       0,
-      2.85,
+      3.2,
     );
-    const wheelResponse = 1 - Math.exp(-dt * (this.isGrounded ? 15 : 5));
+    const wheelResponse = 1 - Math.exp(-dt * (this.isGrounded ? 18 : 4.5));
 
     const syncWheel = (wheel: Phaser.Physics.Matter.Image): void => {
       const body = wheel.body as MatterJS.BodyType;
@@ -196,13 +232,13 @@ export class VehicleRig {
 
     if (this.isGrounded) {
       const rotationDamping = Math.pow(0.038, dt);
-      this.chassis.setAngularVelocity(chassisBody.angularVelocity * rotationDamping);
+      this.chassis.setAngularVelocity(updatedBody.angularVelocity * rotationDamping);
 
-      if (forwardSpeed > 30) {
-        const downforce = 0.00015
+      if (roadSpeed > 28) {
+        const downforce = 0.00014
           * this.spec.mass
-          * Phaser.Math.Clamp(forwardSpeed / this.driveTargetSpeed, 0, 1);
-        this.chassis.applyForce(new Phaser.Math.Vector2(0, downforce));
+          * Phaser.Math.Clamp(roadSpeed / this.driveTargetSpeed, 0, 1);
+        this.chassis.applyForce(new Phaser.Math.Vector2(normalX * downforce, normalY * downforce));
       }
     }
   }
@@ -269,7 +305,7 @@ export class VehicleRig {
   }
 
   get speedMph(): number {
-    return Phaser.Math.Clamp(this.horizontalSpeed / MPH_TO_MATTER_SPEED, 0, MAX_TARGET_MPH);
+    return Phaser.Math.Clamp(this.speed / MPH_TO_MATTER_SPEED, 0, MAX_TARGET_MPH);
   }
 
   get rotation(): number {

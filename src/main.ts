@@ -9,11 +9,13 @@ import { installNaturalRampTuning } from './game/systems/NaturalRampTuning';
 import { installLevelProgression } from './game/systems/LevelProgression';
 import { installPremiumGameplay } from './game/systems/PremiumGameplay';
 import { installCrashMomentumTuning } from './game/systems/CrashMomentumTuning';
+import { installSpeedMapBalance } from './game/systems/SpeedMapBalance';
 
 installNaturalRampTuning(GameScene);
 installLevelProgression(GameScene);
 installPremiumGameplay(GameScene);
 installCrashMomentumTuning(GameScene);
+installSpeedMapBalance();
 
 const game = new Phaser.Game(gameConfig);
 

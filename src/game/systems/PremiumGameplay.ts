@@ -16,7 +16,7 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
   proto.create = function (...args: unknown[]): void {
     baseCreate.apply(this, args);
 
-    this.cameras.main.startFollow(this.rig.chassis, true, 0.15, 0.15, -235, 105);
+    this.cameras.main.startFollow(this.rig.chassis, true, 0.2, 0.2, -260, 105);
 
     this.premiumSpeedLines = this.add
       .graphics()
@@ -39,20 +39,20 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
       .setDepth(205)
       .setColor('#fff6d5');
     this.add
-      .text(927, 562, 'MPH', labelStyle(20, '#58ddff'))
+      .text(927, 562, 'ACTUAL MPH', labelStyle(18, '#58ddff'))
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(205);
 
     this.premiumDust = this.add
       .particles(0, 0, 'dust', {
-        speedX: { min: -300, max: -100 },
-        speedY: { min: -90, max: 20 },
-        lifespan: { min: 260, max: 700 },
-        scale: { start: 0.82, end: 0 },
-        alpha: { start: 0.55, end: 0 },
-        quantity: 2,
-        frequency: 45,
+        speedX: { min: -380, max: -135 },
+        speedY: { min: -100, max: 24 },
+        lifespan: { min: 240, max: 640 },
+        scale: { start: 0.86, end: 0 },
+        alpha: { start: 0.58, end: 0 },
+        quantity: 3,
+        frequency: 40,
         emitting: false,
       })
       .setDepth(24);
@@ -73,8 +73,8 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
 
     const mph = this.rig.speedMph;
     const speedRatio = Phaser.Math.Clamp(mph / 100, 0, 1);
-    const targetZoom = mph > 95 ? 0.66 : mph > 85 ? 0.7 : mph > 72 ? 0.76 : mph > 58 ? 0.84 : mph > 45 ? 0.91 : 1;
-    const zoomResponse = Math.min(1, (delta / 1000) * 4.2);
+    const targetZoom = mph > 95 ? 0.78 : mph > 85 ? 0.81 : mph > 72 ? 0.85 : mph > 58 ? 0.9 : mph > 45 ? 0.95 : 1;
+    const zoomResponse = Math.min(1, (delta / 1000) * 5.2);
     this.cameras.main.zoom += (targetZoom - this.cameras.main.zoom) * zoomResponse;
 
     setEngineIntensity(this, Phaser.Math.Clamp(0.18 + speedRatio * 0.92, 0, 1));
@@ -82,13 +82,13 @@ export function installPremiumGameplay(GameSceneClass: { prototype: object }): v
 
     const lines = this.premiumSpeedLines as Phaser.GameObjects.Graphics | undefined;
     lines?.clear();
-    const lineIntensity = Phaser.Math.Clamp((mph - 52) / 48, 0, 1);
+    const lineIntensity = Phaser.Math.Clamp((mph - 48) / 52, 0, 1);
     if (lines && lineIntensity > 0) {
-      for (let index = 0; index < 18; index += 1) {
-        const lane = (index * 113 + time * (0.24 + (index % 3) * 0.045)) % 1920;
-        const x = 120 + ((index * 211 + time * 0.34) % 930);
-        const length = 70 + lineIntensity * (120 + (index % 4) * 28);
-        lines.lineStyle(2 + lineIntensity * 5, 0xffffff, 0.05 + lineIntensity * 0.19);
+      for (let index = 0; index < 22; index += 1) {
+        const lane = (index * 97 + time * (0.31 + (index % 3) * 0.055)) % 1920;
+        const x = 110 + ((index * 197 + time * 0.43) % 950);
+        const length = 75 + lineIntensity * (145 + (index % 4) * 32);
+        lines.lineStyle(2 + lineIntensity * 5, 0xffffff, 0.05 + lineIntensity * 0.22);
         lines.lineBetween(x, lane, x - length, lane + 5 + (index % 2) * 4);
       }
     }

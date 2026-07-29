@@ -154,6 +154,8 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
     const rampEndX = level.rampEndX;
     const rampEndY = level.rampEndY;
     const lipEndX = rampEndX + level.lipLength;
+    const takeoffRise = 36 + level.id * 3;
+    const lipEndY = rampEndY - takeoffRise;
     const elevated = level.theme === 'skyway' || level.theme === 'industrial';
 
     drawEnvironment(this, level);
@@ -168,13 +170,14 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
     terrain.beginPath();
     terrain.moveTo(rampStartX, rampStartY);
     terrain.lineTo(rampEndX, rampEndY);
-    terrain.lineTo(lipEndX, rampEndY);
+    terrain.lineTo(lipEndX, lipEndY);
+    terrain.lineTo(lipEndX, lipEndY + 72);
     terrain.lineTo(720, rampStartY);
     terrain.closePath();
     terrain.fillPath();
     terrain.lineStyle(18, level.roadEdge, 1);
     terrain.lineBetween(rampStartX, rampStartY - 2, rampEndX, rampEndY);
-    terrain.lineBetween(rampEndX, rampEndY, lipEndX, rampEndY);
+    terrain.lineBetween(rampEndX, rampEndY, lipEndX, lipEndY);
 
     if (elevated) {
       drawRoadLine(terrain, level.terrain, 108, level.roadFill, 1);
@@ -203,13 +206,7 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
       label: 'ground',
     });
     const ramp = addSlopeBody(this, rampStartX, rampStartY, rampEndX, rampEndY, 78);
-    const lip = this.matter.add.rectangle(
-      rampEndX + level.lipLength * 0.5,
-      rampEndY + 31,
-      level.lipLength,
-      62,
-      { isStatic: true, label: 'ground' },
-    );
+    const lip = addSlopeBody(this, rampEndX, rampEndY, lipEndX, lipEndY, 64);
     const safetyFloor = this.matter.add.rectangle(
       1400 + safetyWidth * 0.5,
       level.catchFloorY + 110,
@@ -231,11 +228,11 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
     });
     ramp.friction = 1.25;
     ramp.restitution = 0.012;
-    lip.friction = 1.2;
-    lip.restitution = 0.012;
+    lip.friction = 1.22;
+    lip.restitution = 0.008;
 
     const sign = this.add
-      .text(lipEndX - 20, rampEndY - 105, level.name, labelStyle(34, '#fff6d5'))
+      .text(lipEndX - 20, lipEndY - 105, level.name, labelStyle(34, '#fff6d5'))
       .setOrigin(1, 0.5)
       .setRotation(-0.02)
       .setDepth(5)
@@ -259,8 +256,6 @@ export function installLevelProgression(GameSceneClass: { prototype: object }): 
     const settled = this.runTime > 4 && this.settleTime > 1.45;
     const timedOut = this.runTime > 30;
 
-    // The original scene asks to finish at x > 5850 or after 20 seconds. Ignore
-    // those legacy limits until the longer 50–100 MPH course is actually done.
     if (!reachedEnd && !fallenOut && !settled && !timedOut) return;
     baseFinishRun.call(this);
   };

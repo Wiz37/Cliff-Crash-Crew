@@ -3,9 +3,9 @@ import type { VehicleSpec } from '../data/vehicles';
 
 export type WheelSide = 'left' | 'right';
 
-const MPH_TO_MATTER_SPEED = 0.62;
-const MIN_TARGET_MPH = 20;
-const MAX_TARGET_MPH = 80;
+const MPH_TO_MATTER_SPEED = 0.72;
+const MIN_TARGET_MPH = 50;
+const MAX_TARGET_MPH = 100;
 
 export class VehicleRig {
   readonly chassis: Phaser.Physics.Matter.Image;
@@ -37,9 +37,9 @@ export class VehicleRig {
     const noSelfCollision = scene.matter.world.nextGroup(true);
 
     this.chassis = scene.matter.add.image(x, y, `vehicle-${spec.id}`, undefined, {
-      friction: 0.72,
-      frictionAir: 0.0035,
-      restitution: 0.12,
+      friction: 0.76,
+      frictionAir: 0.0028,
+      restitution: 0.1,
       density: 0.0032 * spec.mass,
       sleepThreshold: 60,
     });
@@ -72,22 +72,22 @@ export class VehicleRig {
       this.chassis.body as MatterJS.BodyType,
       this.leftWheel.body as MatterJS.BodyType,
       0,
-      0.92,
+      0.93,
       {
         pointA: { x: -wheelOffsetX, y: wheelOffsetY },
-        damping: 0.25,
-        stiffness: 0.92,
+        damping: 0.27,
+        stiffness: 0.93,
       },
     );
     this.rightConstraint = scene.matter.add.constraint(
       this.chassis.body as MatterJS.BodyType,
       this.rightWheel.body as MatterJS.BodyType,
       0,
-      0.92,
+      0.93,
       {
         pointA: { x: wheelOffsetX, y: wheelOffsetY },
-        damping: 0.25,
-        stiffness: 0.92,
+        damping: 0.27,
+        stiffness: 0.93,
       },
     );
 
@@ -102,11 +102,11 @@ export class VehicleRig {
     side: WheelSide,
   ): Phaser.Physics.Matter.Image {
     const wheel = this.scene.matter.add.image(x, y, 'wheel', undefined, {
-      friction: 1.7,
-      frictionStatic: 2.4,
-      frictionAir: 0.006,
-      restitution: 0.12,
-      density: 0.0025 * this.spec.mass,
+      friction: 1.9,
+      frictionStatic: 2.7,
+      frictionAir: 0.007,
+      restitution: 0.1,
+      density: 0.0026 * this.spec.mass,
       sleepThreshold: 60,
     });
     wheel.setDisplaySize(radius * 2.1, radius * 2.1);
@@ -155,15 +155,18 @@ export class VehicleRig {
       1,
     );
 
-    // The chassis receives the drive force. Wheel rotation is synchronized to
-    // road speed so the tires do not sit there free-spinning at low speed.
-    if (this.isGrounded && speedDeficit > 0) {
-      const lowSpeedBoost = Phaser.Math.Linear(1.5, 0.82, forwardSpeed / Math.max(1, this.driveTargetSpeed));
-      const driveForce = 0.00145
+    // Chassis force supplies the acceleration. Tire animation follows road speed
+    // with only a small amount of controlled slip, preventing stationary burnout.
+    if (speedDeficit > 0) {
+      const progress = Phaser.Math.Clamp(forwardSpeed / Math.max(1, this.driveTargetSpeed), 0, 1);
+      const launchBoost = Phaser.Math.Linear(1.85, 0.78, progress);
+      const traction = this.isGrounded ? 1 : 0.035;
+      const driveForce = 0.0019
         * this.spec.mass
-        * (0.88 + this.spec.power * 0.34)
+        * (0.9 + this.spec.power * 0.36)
         * speedDeficit
-        * Phaser.Math.Clamp(lowSpeedBoost, 0.82, 1.5);
+        * launchBoost
+        * traction;
       this.chassis.applyForce(new Phaser.Math.Vector2(driveForce, 0));
     }
 
@@ -171,15 +174,14 @@ export class VehicleRig {
       this.chassis.setVelocity(this.driveTargetSpeed, chassisBody.velocity.y);
     }
 
-    const rollingAngularVelocity = forwardSpeed / Math.max(18, this.wheelRadius);
-    const maximumSlip = this.isGrounded ? 0.12 : 0.32;
-    const throttleSlip = speedDeficit * maximumSlip;
+    const roadAngularVelocity = forwardSpeed / Math.max(18, this.wheelRadius);
+    const maximumSlip = this.isGrounded ? 0.055 : 0.22;
     const desiredWheelAngularVelocity = Phaser.Math.Clamp(
-      rollingAngularVelocity + throttleSlip,
+      roadAngularVelocity + speedDeficit * maximumSlip,
       0,
-      1.45,
+      2.85,
     );
-    const wheelResponse = 1 - Math.exp(-dt * (this.isGrounded ? 13 : 4.5));
+    const wheelResponse = 1 - Math.exp(-dt * (this.isGrounded ? 15 : 5));
 
     const syncWheel = (wheel: Phaser.Physics.Matter.Image): void => {
       const body = wheel.body as MatterJS.BodyType;
@@ -193,11 +195,11 @@ export class VehicleRig {
     if (this.rightAttached) syncWheel(this.rightWheel);
 
     if (this.isGrounded) {
-      const rotationDamping = Math.pow(0.045, dt);
+      const rotationDamping = Math.pow(0.038, dt);
       this.chassis.setAngularVelocity(chassisBody.angularVelocity * rotationDamping);
 
-      if (forwardSpeed > 20) {
-        const downforce = 0.00013
+      if (forwardSpeed > 30) {
+        const downforce = 0.00015
           * this.spec.mass
           * Phaser.Math.Clamp(forwardSpeed / this.driveTargetSpeed, 0, 1);
         this.chassis.applyForce(new Phaser.Math.Vector2(0, downforce));
@@ -214,8 +216,8 @@ export class VehicleRig {
     if (!this.launched || direction === 0) return;
 
     const body = this.chassis.body as MatterJS.BodyType;
-    const controlStrength = this.isGrounded ? 0.008 : 0.17;
-    const maximumRotationSpeed = this.isGrounded ? 0.035 : 0.24;
+    const controlStrength = this.isGrounded ? 0.006 : 0.17;
+    const maximumRotationSpeed = this.isGrounded ? 0.03 : 0.24;
     const next = Phaser.Math.Clamp(
       body.angularVelocity + direction * this.spec.spin * deltaSeconds * controlStrength,
       -maximumRotationSpeed,

@@ -109,7 +109,7 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     const prompt = this.children.list.find(
       (child: any) => typeof child?.text === 'string' && child.text.includes('HOLD TO CHARGE'),
     ) as any;
-    prompt?.setText('HOLD TO REV • RELEASE TO DRIVE');
+    prompt?.setText('HOLD TO REV • 20–80 MPH');
   };
 
   proto.launchVehicle = function (): void {
@@ -117,8 +117,11 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
     this.launched = true;
     this.charging = false;
 
-    const targetSpeed = (27 + this.charge * 25) * this.rig.spec.power;
-    this.rig.beginDrive(targetSpeed);
+    // Charge selects a calibrated road-speed target. Vehicle power now affects
+    // acceleration and momentum, but every vehicle uses the same clear 20–80
+    // MPH control range so the meter remains predictable.
+    const targetMph = 20 + this.charge * 60;
+    this.rig.beginDrive(targetMph);
 
     this.chargePanel?.setVisible(false);
     this.rotateControls.forEach((control: any) => control.setVisible(true));

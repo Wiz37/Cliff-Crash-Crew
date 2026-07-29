@@ -3,6 +3,10 @@ import type { VehicleSpec } from '../data/vehicles';
 
 export type WheelSide = 'left' | 'right';
 
+const MPH_TO_MATTER_SPEED = 0.62;
+const MIN_TARGET_MPH = 20;
+const MAX_TARGET_MPH = 80;
+
 export class VehicleRig {
   readonly chassis: Phaser.Physics.Matter.Image;
   readonly leftWheel: Phaser.Physics.Matter.Image;
@@ -18,6 +22,7 @@ export class VehicleRig {
   private rightAttached = true;
   private launched = false;
   private driveTargetSpeed = 0;
+  private driveTargetMph = MIN_TARGET_MPH;
 
   constructor(scene: Phaser.Scene, x: number, y: number, spec: VehicleSpec) {
     this.scene = scene;
@@ -32,9 +37,9 @@ export class VehicleRig {
     const noSelfCollision = scene.matter.world.nextGroup(true);
 
     this.chassis = scene.matter.add.image(x, y, `vehicle-${spec.id}`, undefined, {
-      friction: 0.62,
-      frictionAir: 0.004,
-      restitution: 0.14,
+      friction: 0.72,
+      frictionAir: 0.0035,
+      restitution: 0.12,
       density: 0.0032 * spec.mass,
       sleepThreshold: 60,
     });
@@ -67,22 +72,22 @@ export class VehicleRig {
       this.chassis.body as MatterJS.BodyType,
       this.leftWheel.body as MatterJS.BodyType,
       0,
-      0.9,
+      0.92,
       {
         pointA: { x: -wheelOffsetX, y: wheelOffsetY },
-        damping: 0.22,
-        stiffness: 0.9,
+        damping: 0.25,
+        stiffness: 0.92,
       },
     );
     this.rightConstraint = scene.matter.add.constraint(
       this.chassis.body as MatterJS.BodyType,
       this.rightWheel.body as MatterJS.BodyType,
       0,
-      0.9,
+      0.92,
       {
         pointA: { x: wheelOffsetX, y: wheelOffsetY },
-        damping: 0.22,
-        stiffness: 0.9,
+        damping: 0.25,
+        stiffness: 0.92,
       },
     );
 
@@ -97,11 +102,11 @@ export class VehicleRig {
     side: WheelSide,
   ): Phaser.Physics.Matter.Image {
     const wheel = this.scene.matter.add.image(x, y, 'wheel', undefined, {
-      friction: 1.45,
-      frictionStatic: 2,
-      frictionAir: 0.004,
-      restitution: 0.18,
-      density: 0.0024 * this.spec.mass,
+      friction: 1.7,
+      frictionStatic: 2.4,
+      frictionAir: 0.006,
+      restitution: 0.12,
+      density: 0.0025 * this.spec.mass,
       sleepThreshold: 60,
     });
     wheel.setDisplaySize(radius * 2.1, radius * 2.1);
@@ -120,10 +125,11 @@ export class VehicleRig {
     this.rightWheel.setStatic(value);
   }
 
-  beginDrive(targetSpeed: number): void {
+  beginDrive(targetMph: number): void {
     if (this.launched) return;
     this.launched = true;
-    this.driveTargetSpeed = Phaser.Math.Clamp(targetSpeed, 26, 62);
+    this.driveTargetMph = Phaser.Math.Clamp(targetMph, MIN_TARGET_MPH, MAX_TARGET_MPH);
+    this.driveTargetSpeed = this.driveTargetMph * MPH_TO_MATTER_SPEED;
     this.setStatic(false);
 
     [this.chassis, this.leftWheel, this.rightWheel].forEach((part) => {
@@ -133,57 +139,67 @@ export class VehicleRig {
     });
   }
 
-  launch(velocityX: number, _velocityY = 0): void {
-    this.beginDrive(velocityX);
+  launch(targetMph: number, _velocityY = 0): void {
+    this.beginDrive(targetMph);
   }
 
   applyDrive(deltaSeconds: number): void {
     if (!this.launched) return;
 
     const dt = Phaser.Math.Clamp(deltaSeconds, 0, 0.034);
-    const targetAngularVelocity = Phaser.Math.Clamp(
-      this.driveTargetSpeed / Math.max(22, this.wheelRadius * 0.94),
-      0.5,
-      1.55,
-    );
-    const response = 1 - Math.exp(-dt * (8.5 + this.spec.power * 2.8));
-
-    const spinWheel = (wheel: Phaser.Physics.Matter.Image): void => {
-      const body = wheel.body as MatterJS.BodyType;
-      const nextAngularVelocity = body.angularVelocity
-        + (targetAngularVelocity - body.angularVelocity) * response;
-      wheel.setAngularVelocity(nextAngularVelocity);
-      wheel.setAwake();
-    };
-
-    if (this.leftAttached) spinWheel(this.leftWheel);
-    if (this.rightAttached) spinWheel(this.rightWheel);
-
     const chassisBody = this.chassis.body as MatterJS.BodyType;
+    const forwardSpeed = Math.max(0, chassisBody.velocity.x);
     const speedDeficit = Phaser.Math.Clamp(
-      (this.driveTargetSpeed - chassisBody.velocity.x) / this.driveTargetSpeed,
+      (this.driveTargetSpeed - forwardSpeed) / Math.max(1, this.driveTargetSpeed),
       0,
       1,
     );
 
-    if (speedDeficit > 0) {
-      const tractionMultiplier = this.isGrounded ? 1 : 0.16;
-      const driveForce = 0.00105
+    // The chassis receives the drive force. Wheel rotation is synchronized to
+    // road speed so the tires do not sit there free-spinning at low speed.
+    if (this.isGrounded && speedDeficit > 0) {
+      const lowSpeedBoost = Phaser.Math.Linear(1.5, 0.82, forwardSpeed / Math.max(1, this.driveTargetSpeed));
+      const driveForce = 0.00145
         * this.spec.mass
-        * (0.82 + this.spec.power * 0.38)
+        * (0.88 + this.spec.power * 0.34)
         * speedDeficit
-        * tractionMultiplier;
+        * Phaser.Math.Clamp(lowSpeedBoost, 0.82, 1.5);
       this.chassis.applyForce(new Phaser.Math.Vector2(driveForce, 0));
     }
 
+    if (chassisBody.velocity.x > this.driveTargetSpeed) {
+      this.chassis.setVelocity(this.driveTargetSpeed, chassisBody.velocity.y);
+    }
+
+    const rollingAngularVelocity = forwardSpeed / Math.max(18, this.wheelRadius);
+    const maximumSlip = this.isGrounded ? 0.12 : 0.32;
+    const throttleSlip = speedDeficit * maximumSlip;
+    const desiredWheelAngularVelocity = Phaser.Math.Clamp(
+      rollingAngularVelocity + throttleSlip,
+      0,
+      1.45,
+    );
+    const wheelResponse = 1 - Math.exp(-dt * (this.isGrounded ? 13 : 4.5));
+
+    const syncWheel = (wheel: Phaser.Physics.Matter.Image): void => {
+      const body = wheel.body as MatterJS.BodyType;
+      const nextAngularVelocity = body.angularVelocity
+        + (desiredWheelAngularVelocity - body.angularVelocity) * wheelResponse;
+      wheel.setAngularVelocity(nextAngularVelocity);
+      wheel.setAwake();
+    };
+
+    if (this.leftAttached) syncWheel(this.leftWheel);
+    if (this.rightAttached) syncWheel(this.rightWheel);
+
     if (this.isGrounded) {
-      const rotationDamping = Math.pow(0.055, dt);
+      const rotationDamping = Math.pow(0.045, dt);
       this.chassis.setAngularVelocity(chassisBody.angularVelocity * rotationDamping);
 
-      if (chassisBody.velocity.x > 24) {
-        const downforce = 0.00012
+      if (forwardSpeed > 20) {
+        const downforce = 0.00013
           * this.spec.mass
-          * Phaser.Math.Clamp(chassisBody.velocity.x / 55, 0, 1);
+          * Phaser.Math.Clamp(forwardSpeed / this.driveTargetSpeed, 0, 1);
         this.chassis.applyForce(new Phaser.Math.Vector2(0, downforce));
       }
     }
@@ -238,12 +254,20 @@ export class VehicleRig {
     return this.driveTargetSpeed;
   }
 
+  get targetMph(): number {
+    return this.driveTargetMph;
+  }
+
   get speed(): number {
     return (this.chassis.body as MatterJS.BodyType).speed;
   }
 
   get horizontalSpeed(): number {
     return Math.abs((this.chassis.body as MatterJS.BodyType).velocity.x);
+  }
+
+  get speedMph(): number {
+    return Phaser.Math.Clamp(this.horizontalSpeed / MPH_TO_MATTER_SPEED, 0, MAX_TARGET_MPH);
   }
 
   get rotation(): number {

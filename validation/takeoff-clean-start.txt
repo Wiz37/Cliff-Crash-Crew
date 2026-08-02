@@ -1,0 +1,1 @@
+Validates clean takeoff without startup explosion, flash, haptic impact, or camera shake.

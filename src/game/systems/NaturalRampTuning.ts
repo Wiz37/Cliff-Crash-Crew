@@ -1,4 +1,3 @@
-import { HapticsService } from '../services/HapticsService';
 import { playSfx } from '../services/AudioService';
 import { COLORS, labelStyle } from '../ui/theme';
 
@@ -97,10 +96,10 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
 
     this.chargePanel?.setVisible(false);
     this.rotateControls.forEach((control: any) => control.setVisible(true));
-    playSfx(this, 'launch', { volume: 0.68, rate: 0.98 + normalizedCharge * 0.28 });
-    HapticsService.impact();
-    this.explodeParticles(this.rig.x - 88, this.rig.y + 42, 'dust', 24, 0xfff6d5, 1.5);
-    this.cameras.main.shake(125, 0.0042);
+
+    // Takeoff is a clean rolling start. Destruction effects are reserved for
+    // actual collisions with demolition blocks later in the run.
+    playSfx(this, 'launch', { volume: 0.34, rate: 1.04 + normalizedCharge * 0.16 });
   };
 
   const originalBindCollisions = proto.bindCollisions;

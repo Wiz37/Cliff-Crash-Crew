@@ -119,7 +119,9 @@ export function installNaturalRampTuning(GameSceneClass: { prototype: object }):
         if (!rig) return;
 
         const otherBody = rigA ? bodyB : bodyA;
-        if (otherBody.label !== 'ground' && otherBody.label !== 'breakable-block') return;
+        // Demolition blocks are obstacles, not terrain. Counting them as ground
+        // disabled airborne rotation whenever the vehicle touched a tower.
+        if (otherBody.label !== 'ground') return;
 
         const contactId = `${Math.min(bodyA.id, bodyB.id)}:${Math.max(bodyA.id, bodyB.id)}`;
         rig.setGroundContact(contactId, active);
